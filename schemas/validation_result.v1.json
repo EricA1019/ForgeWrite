@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forgerwrite.validation_result.v1",
+  "title": "Validation Result",
+  "description": "Output from running a validation profile against the repo.",
+  "type": "object",
+  "required": ["schema_id", "profile_id", "passed", "commands"],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "forgerwrite.validation_result.v1"
+    },
+    "profile_id": {
+      "type": "string",
+      "description": "The validation profile that was run.",
+      "minLength": 1
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Whether all commands in the profile passed."
+    },
+    "commands": {
+      "type": "array",
+      "description": "Results for each command in the profile.",
+      "items": {
+        "type": "object",
+        "required": ["command_id", "command", "returncode", "passed"],
+        "properties": {
+          "command_id": { "type": "string" },
+          "command": { "type": "string" },
+          "returncode": { "type": "integer" },
+          "passed": { "type": "boolean" },
+          "stdout_head": { "type": "string" },
+          "stdout_tail": { "type": "string" },
+          "stderr_head": { "type": "string" },
+          "stderr_tail": { "type": "string" },
+          "truncated": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

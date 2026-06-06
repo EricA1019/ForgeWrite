@@ -1,0 +1,30 @@
+# ForgerWrite MCP — .gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Run artifacts (generated at runtime)
+.forgerwrite/runs/
+.forgerwrite/forgerwrite.db
+
+# Secrets
+.forgerwrite/secrets.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/

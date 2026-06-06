@@ -1,0 +1,1 @@
+{"schema_id": "forgerwrite.validation_result.v1", "profile_id": "rust_default", "passed": true, "commands": [{"command": "cargo fmt", "returncode": 0, "passed": true}]}

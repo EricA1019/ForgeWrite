@@ -1,0 +1,1 @@
+{"schema_id": "forgerwrite.operation_batch.v1", "batch_id": "batch-001", "slice_id": "add-verbose-flag", "operations": [{"op": "create_file", "path": "src/test.rs", "content": "fn main() {}"}]}

@@ -1,0 +1,39 @@
+"""InsertAfterLineHandler — inserts content after a specified line number."""
+
+from pathlib import Path
+from typing import Any
+
+from ..config import LimitsConfig
+from ..paths import safe_resolve_path
+from .registry import ApplyOutcome, OperationApplyError
+
+
+class InsertAfterLineHandler:
+    op_name: str = "insert_after_line"
+
+    def validate(
+        self, operation: dict[str, Any], slice_contract: dict[str, Any], limits: LimitsConfig
+    ) -> None:
+        content = operation.get("content") or ""
+        if len(content.encode("utf-8")) > limits.operation_content_max_bytes:
+            raise OperationApplyError("Operation content exceeds limit")
+
+    def apply(self, repo_root: Path, operation: dict[str, Any]) -> ApplyOutcome:
+        path = safe_resolve_path(repo_root, operation["path"])
+        if not path.exists():
+            raise OperationApplyError(f"Target file missing: {operation['path']}")
+        after_line = int(operation["after_line"])
+        content = operation.get("content") or ""
+        original = path.read_text(encoding="utf-8")
+        lines = original.splitlines(keepends=True)
+        if after_line == 0:
+            # Insert at beginning
+            new_lines = [content + "\n"] + lines
+        elif after_line >= len(lines):
+            # Insert at end
+            new_lines = lines + [content + "\n"]
+        else:
+            new_lines = lines[:after_line] + [content + "\n"] + lines[after_line:]
+        updated = "".join(new_lines)
+        path.write_text(updated, encoding="utf-8")
+        return ApplyOutcome(path=operation["path"], bytes_written=len(updated.encode("utf-8")))

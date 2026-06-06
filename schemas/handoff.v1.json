@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forgerwrite.handoff.v1",
+  "title": "Handoff Contract",
+  "description": "Project-level contract between cloud orchestrator and ForgerWrite MCP.",
+  "type": "object",
+  "required": ["schema_id", "project", "language"],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "forgerwrite.handoff.v1"
+    },
+    "project": {
+      "type": "string",
+      "description": "Project name.",
+      "minLength": 1
+    },
+    "language": {
+      "type": "string",
+      "description": "Primary programming language of the project.",
+      "minLength": 1
+    },
+    "repo_root": {
+      "type": "string",
+      "description": "Relative or absolute path to the repository root."
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable project description."
+    }
+  },
+  "additionalProperties": false
+}

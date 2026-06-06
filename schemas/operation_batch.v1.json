@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forgerwrite.operation_batch.v1",
+  "title": "Operation Batch",
+  "description": "A structured set of file operations produced by the local writer.",
+  "type": "object",
+  "required": ["batch_id", "slice_id", "operations"],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "forgerwrite.operation_batch.v1"
+    },
+    "batch_id": {
+      "type": "string",
+      "description": "Unique identifier for this batch.",
+      "minLength": 1
+    },
+    "slice_id": {
+      "type": "string",
+      "description": "The slice this batch belongs to.",
+      "minLength": 1
+    },
+    "operations": {
+      "type": "array",
+      "description": "Ordered list of file operations to apply.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["op", "path"],
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "create_file",
+              "replace_file",
+              "replace_line_range",
+              "insert_after_line",
+              "insert_before_line",
+              "delete_file"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "Relative file path from repo root.",
+            "minLength": 1
+          },
+          "content": {
+            "type": "string",
+            "description": "File content for create_file/replace_file, or replacement content for other ops."
+          },
+          "start_line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "First line to replace (1-indexed). Required for replace_line_range."
+          },
+          "end_line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Last line to replace (1-indexed, inclusive). Required for replace_line_range."
+          },
+          "after_line": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Line number to insert after. 0 inserts at beginning. Required for insert_after_line."
+          },
+          "before_line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Line number to insert before. Required for insert_before_line."
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": { "op": { "const": "create_file" } }
+            },
+            "then": { "required": ["content"] }
+          },
+          {
+            "if": {
+              "properties": { "op": { "const": "replace_file" } }
+            },
+            "then": { "required": ["content"] }
+          },
+          {
+            "if": {
+              "properties": { "op": { "const": "replace_line_range" } }
+            },
+            "then": { "required": ["start_line", "end_line", "content"] }
+          },
+          {
+            "if": {
+              "properties": { "op": { "const": "insert_after_line" } }
+            },
+            "then": { "required": ["after_line", "content"] }
+          },
+          {
+            "if": {
+              "properties": { "op": { "const": "insert_before_line" } }
+            },
+            "then": { "required": ["before_line", "content"] }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

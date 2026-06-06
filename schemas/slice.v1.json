@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forgerwrite.slice.v1",
+  "title": "Slice Contract",
+  "description": "A single executable work unit — the smallest dispatchable coding task.",
+  "type": "object",
+  "required": ["slice_id", "allowed_files"],
+  "properties": {
+    "schema_id": {
+      "type": "string",
+      "const": "forgerwrite.slice.v1"
+    },
+    "slice_id": {
+      "type": "string",
+      "description": "Unique identifier for this slice.",
+      "minLength": 1
+    },
+    "allowed_files": {
+      "type": "array",
+      "description": "Files the local writer may read and modify.",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "forbidden_files": {
+      "type": "array",
+      "description": "Files explicitly excluded from this slice.",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "operation_types": {
+      "type": "array",
+      "description": "Allowed operation types for this slice.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "create_file",
+          "replace_file",
+          "replace_line_range",
+          "insert_after_line",
+          "insert_before_line",
+          "delete_file"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of what this slice should accomplish."
+    },
+    "constraints": {
+      "type": "object",
+      "description": "Additional constraints (e.g., 'do not add dependencies').",
+      "additionalProperties": true
+    },
+    "validation_profile": {
+      "type": "string",
+      "description": "Validation profile to run after apply.",
+      "default": "rust_default"
+    }
+  },
+  "additionalProperties": false
+}

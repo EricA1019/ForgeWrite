@@ -1,0 +1,1 @@
+{"schema_id": "forgerwrite.operation_batch.v1", "batch_id": "b1", "slice_id": "s1", "operations": [{"op": "unknown_op", "path": "x.rs"}]}
