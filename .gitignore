@@ -28,3 +28,8 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+.forgerwrite/runs/
+.forgerwrite/forgerwrite.db
+.forgerwrite/secrets.json
+_output/
