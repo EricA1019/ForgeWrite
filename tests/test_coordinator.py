@@ -25,7 +25,7 @@ class FakeModelBackend:
 
 
 def _init_repo(path: Path) -> None:
-    """Initialize a git repo with one committed file."""
+    """Initialize a git repo with committed files for coordinator tests."""
     import subprocess
 
     subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
@@ -33,8 +33,15 @@ def _init_repo(path: Path) -> None:
         ["git", "config", "user.email", "t@t.com"], cwd=path, check=True, capture_output=True
     )
     subprocess.run(["git", "config", "user.name", "T"], cwd=path, check=True, capture_output=True)
+    (path / "src").mkdir(parents=True, exist_ok=True)
     (path / "existing.rs").write_text("// existing\n")
-    subprocess.run(["git", "add", "existing.rs"], cwd=path, check=True, capture_output=True)
+    (path / "src" / "generated.rs").write_text("// placeholder\n")
+    subprocess.run(
+        ["git", "add", "existing.rs", "src/generated.rs"],
+        cwd=path,
+        check=True,
+        capture_output=True,
+    )
     subprocess.run(["git", "commit", "-m", "init"], cwd=path, check=True, capture_output=True)
 
 
@@ -103,8 +110,9 @@ class TestSliceCoordinator:
         outcome = coord.run(handoff, slice_contract)
         # Without terminal approval, the pipeline stops at preview_ready
         assert outcome.status == "preview_ready"
-        # Preview restores worktree, so the generated file should NOT exist
-        assert not (tmp_path / "src" / "generated.rs").exists()
+        # Preview restores worktree; committed files still exist
+        assert (tmp_path / "src" / "generated.rs").exists()
+        assert (tmp_path / "src" / "generated.rs").read_text() == "// placeholder\n"
 
     def test_coordinator_stops_at_schema_validation_failure(self, coordinator: object) -> None:
         """Invalid operation batch (bad schema) stops the pipeline."""
@@ -155,7 +163,7 @@ class TestSliceCoordinator:
         slice_contract = {
             "schema_id": "forgerwrite.slice.v1",
             "slice_id": "test-slice",
-            "allowed_files": ["nonexistent_file.rs"],
+            "allowed_files": ["existing.rs"],
         }
 
         outcome = coord.run(handoff, slice_contract)

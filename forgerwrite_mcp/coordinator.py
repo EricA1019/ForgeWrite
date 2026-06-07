@@ -12,10 +12,11 @@ import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from .artifacts import generate_run_id, init_run_dir, write_artifact
 from .config import ForgerWriteConfig
+from .context import build_context_packet
 from .contracts.registry import ContractRegistry
 from .forge.git_utils import (
     assert_clean_worktree,
@@ -23,15 +24,9 @@ from .forge.git_utils import (
     create_snapshot,
     restore_snapshot,
 )
+from .local_model import LocalModelBackend
 from .operations.registry import OperationRegistry
-
-
-class _ModelBackend(Protocol):
-    """Protocol for the local model backend — avoids importing local_model.py in Phase 1."""
-
-    async def generate_operation_batch(
-        self, system_prompt: str, user_prompt: str, schema: dict
-    ) -> str: ...
+from .validation.semantic import default_validator
 
 
 @dataclass
@@ -73,7 +68,7 @@ class SliceCoordinator:
         repo_root: Path,
         config: ForgerWriteConfig,
         registry: OperationRegistry,
-        backend: _ModelBackend,
+        backend: LocalModelBackend,
     ) -> None:
         self._repo_root = repo_root.resolve()
         self._config = config
@@ -132,12 +127,13 @@ class SliceCoordinator:
         return _STATUS_CONTRACTS_VALIDATED
 
     def _build_context(self, handoff: dict, slice_contract: dict) -> str:
-        # Stub: full context builder in Phase 2
-        context = {
-            "handoff": handoff,
-            "slice": slice_contract,
-            "files": {},
-        }
+        context = build_context_packet(
+            self._repo_root,
+            handoff,
+            slice_contract,
+            self._config.limits,
+            hygiene=self._config.hygiene,
+        )
         write_artifact(self._run_dir, "context_packet.json", context)
         return _STATUS_CONTEXT_READY
 
@@ -159,11 +155,13 @@ class SliceCoordinator:
         return _STATUS_OPS_SCHEMA_VALID
 
     def _validate_semantic(self, slice_contract: dict) -> str:
-        # Stub: full semantic validator in Phase 2. Just check scope.
-        allowed = set(slice_contract.get("allowed_files", []))
-        for op in self._operation_batch.get("operations", []):
-            if op["path"] not in allowed:
-                return _STATUS_OPS_SCHEMA_VALID  # Would fail, but stub passes
+        validator = default_validator()
+        validator.validate(
+            self._operation_batch,
+            slice_contract,
+            limits=self._config.limits,
+            permissions=self._config.permissions,
+        )
         return _STATUS_OPS_SEMANTIC_VALID
 
     def _preview(self, slice_contract: dict) -> str:
