@@ -101,3 +101,29 @@ class TestBuildContextPacket:
         # target/ files should be excluded
         assert "src/main.rs" in packet["files"]
         assert "target/debug/output" not in packet["files"]
+
+    def test_includes_schema_id(self, tmp_path: Path) -> None:
+        """Context packet carries schema_id per project convention (§14)."""
+        from forgerwrite_mcp.config import LimitsConfig
+        from forgerwrite_mcp.context import build_context_packet
+
+        _write_file(tmp_path, "lib.rs", "// lib")
+        handoff = {"project": "test", "language": "rust"}
+        slice_contract = {"allowed_files": ["lib.rs"]}
+        packet = build_context_packet(tmp_path, handoff, slice_contract, LimitsConfig())
+        assert packet["schema_id"] == "forgerwrite.context_packet.v1"
+
+    def test_skips_nonexistent_files_for_create_ops(self, tmp_path: Path) -> None:
+        """Files that don't exist (to be created) are skipped, not errored."""
+        from forgerwrite_mcp.config import LimitsConfig
+        from forgerwrite_mcp.context import build_context_packet
+
+        _write_file(tmp_path, "existing.rs", "// real")
+        handoff = {"project": "test", "language": "rust"}
+        slice_contract = {
+            "allowed_files": ["existing.rs", "will_be_created.rs"],
+        }
+        # Should not raise — will_be_created.rs is skipped
+        packet = build_context_packet(tmp_path, handoff, slice_contract, LimitsConfig())
+        assert "existing.rs" in packet["files"]
+        assert "will_be_created.rs" not in packet["files"]

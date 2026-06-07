@@ -19,6 +19,7 @@ from .config import ForgerWriteConfig
 from .context import build_context_packet
 from .dead_letter import write_dead_letter
 from .contracts.registry import ContractRegistry
+from .forge.forge import preview_operations as forge_preview
 from .forge.git_utils import (
     assert_clean_worktree,
     cleanup_snapshot,
@@ -82,6 +83,7 @@ class SliceCoordinator:
         # Per-run state
         self._run_id: str = ""
         self._run_dir: Path | None = None
+        self._slice_id: str = ""
 
     def run(self, handoff: dict[str, Any], slice_contract: dict[str, Any]) -> RunOutcome:
         """Execute the full pipeline for a handoff + slice.
@@ -93,6 +95,7 @@ class SliceCoordinator:
 
         self._run_id = generate_run_id()
         self._run_dir = init_run_dir(self._run_id, base_dir=self._repo_root)
+        self._slice_id = slice_contract.get("slice_id", "unknown")
         status = _STATUS_DRAFT
 
         try:
@@ -110,7 +113,9 @@ class SliceCoordinator:
 
                     write_audit_event(self._run_dir, "apply", {"run_id": self._run_id})
                     status = self._validate_result()
-                    if status == _STATUS_VALIDATION_FAILED:
+                    if status == _STATUS_VALIDATION_PASSED:
+                        cleanup_snapshot(self._repo_root, self._run_id)
+                    elif status == _STATUS_VALIDATION_FAILED:
                         status = self._maybe_repair(slice_contract)
         except Exception as exc:
             write_dead_letter(self._run_dir, str(exc))
@@ -171,28 +176,15 @@ class SliceCoordinator:
         return _STATUS_OPS_SEMANTIC_VALID
 
     def _preview(self, slice_contract: dict) -> str:
-        assert_clean_worktree(self._repo_root)
-        create_snapshot(self._repo_root, self._run_id)
-        try:
-            for op in self._operation_batch.get("operations", []):
-                handler = self._registry.dispatch(op)
-                handler.apply(self._repo_root, op)
-            # Generate diff
-            import subprocess
-
-            result = subprocess.run(
-                ["git", "diff"],
-                cwd=self._repo_root,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            (self._run_dir / "preview.diff").write_text(result.stdout)
-            # Restore worktree
-            restore_snapshot(self._repo_root, self._run_id)
-        except Exception:
-            restore_snapshot(self._repo_root, self._run_id)
-            raise
+        # DRY: delegate to forge.preview_operations() which stages new files
+        # and generates a cached diff against the snapshot.
+        forge_preview(
+            self._repo_root,
+            self._run_id,
+            self._operation_batch,
+            slice_contract,
+            self._registry,
+        )
         return _STATUS_PREVIEW_READY
 
     def _await_approval(self) -> str:
@@ -246,7 +238,7 @@ class SliceCoordinator:
         run_meta = {
             "schema_id": "forgerwrite.run.v1",
             "run_id": self._run_id,
-            "slice_id": "unknown",
+            "slice_id": self._slice_id,
             "status": final_status,
             "created_at": datetime.now(UTC).isoformat(),
             "updated_at": datetime.now(UTC).isoformat(),
@@ -254,13 +246,6 @@ class SliceCoordinator:
         }
         write_artifact(self._run_dir, "run.json", run_meta)
 
-
     def _cleanup(self) -> None:
         if self._run_id:
             cleanup_snapshot(self._repo_root, self._run_id)
-
-    def _init_run(self) -> Path:
-        self._run_id = generate_run_id()
-        self._run_dir = init_run_dir(self._run_id, base_dir=self._repo_root)
-        self._record(_STATUS_DRAFT)
-        return self._run_dir

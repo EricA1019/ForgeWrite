@@ -85,7 +85,9 @@ def build_context_packet(
             continue
 
         if not abs_path.exists():
-            raise ContextError(f"File not found: {rel_path}")
+            # File doesn't exist yet — may be created by an operation.
+            # Skip it; there is no context to include.
+            continue
 
         content = abs_path.read_text(encoding="utf-8")
         size = len(content.encode("utf-8"))
@@ -111,6 +113,7 @@ def build_context_packet(
         total_bytes += size
 
     return {
+        "schema_id": "forgerwrite.context_packet.v1",
         "handoff": handoff,
         "slice": slice_contract,
         "files": files,

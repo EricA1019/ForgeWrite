@@ -145,55 +145,9 @@ def doctor(
 ) -> None:
     """Check environment: config, git, llama.cpp, Rust toolchain."""
     root = _get_root()
-    checks: dict[str, bool] = {}
+    from .doctor import run_doctor_checks
 
-    # Config check
-    config_path = root / ".forgerwrite" / "forgerwrite.toml"
-    checks["config_exists"] = config_path.exists()
-
-    # Git check
-    import subprocess
-
-    git_ok = (
-        subprocess.run(
-            ["git", "rev-parse", "--git-dir"],
-            cwd=root,
-            capture_output=True,
-        ).returncode
-        == 0
-    )
-    checks["git_repo"] = git_ok
-
-    # Rust toolchain check
-    rust_ok = (
-        subprocess.run(
-            ["cargo", "--version"],
-            capture_output=True,
-        ).returncode
-        == 0
-    )
-    checks["rust_toolchain"] = rust_ok
-
-    # llama.cpp check
-    import httpx
-
-    llama_ok = False
-    if config_path.exists():
-        try:
-            import tomllib
-
-            cfg = tomllib.loads(config_path.read_text())
-            endpoint = cfg.get("local_model", {}).get("endpoint", "")
-            if endpoint:
-                try:
-                    resp = httpx.get(f"{endpoint.rstrip('/v1')}/health", timeout=3)
-                    llama_ok = resp.status_code == 200
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    checks["llama_cpp_reachable"] = llama_ok
-
+    checks = run_doctor_checks(root)
     all_ok = all(checks.values())
     _json_out({"ok": all_ok, "checks": checks}, json_flag)
 
@@ -302,7 +256,9 @@ def gc(
     json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
 ) -> None:
     """Clean expired run directories and orphan snapshot refs."""
-    from datetime import datetime, timedelta
+    import subprocess
+    import shutil
+    from datetime import datetime, timedelta, timezone
 
     from .config import load_config
 
@@ -314,30 +270,54 @@ def gc(
         retention_days = 90
 
     runs_dir = root / ".forgerwrite" / "runs"
-    if not runs_dir.exists():
-        _json_out({"ok": True, "cleaned": 0}, json_flag)
-        return
+    cleaned_runs = 0
 
-    cutoff = datetime.now(UTC) - timedelta(days=retention_days)
-    cleaned = 0
-    for run_dir in runs_dir.iterdir():
-        if run_dir.is_dir():
-            run_json = run_dir / "run.json"
-            if run_json.exists():
-                try:
-                    data = json.loads(run_json.read_text())
-                    created = data.get("created_at", "")
-                    if created:
-                        created_dt = datetime.fromisoformat(created)
-                        if created_dt < cutoff:
-                            import shutil
+    if runs_dir.exists():
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        for run_dir in list(runs_dir.iterdir()):
+            if run_dir.is_dir():
+                run_json = run_dir / "run.json"
+                if run_json.exists():
+                    try:
+                        data = json.loads(run_json.read_text())
+                        created = data.get("created_at", "")
+                        if created:
+                            created_dt = datetime.fromisoformat(created)
+                            if created_dt < cutoff:
+                                shutil.rmtree(run_dir)
+                                cleaned_runs += 1
+                    except Exception:
+                        pass
 
-                            shutil.rmtree(run_dir)
-                            cleaned += 1
-                except Exception:
-                    pass
+    # Clean orphan snapshot refs (refs without corresponding run directories)
+    cleaned_refs = 0
+    try:
+        result = subprocess.run(
+            ["git", "for-each-ref", "refs/forgerwrite/", "--format=%(refname:short)"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+        )
+        for ref_line in result.stdout.strip().split("\n"):
+            ref_line = ref_line.strip()
+            if not ref_line:
+                continue
+            # Extract run_id from refs/forgerwrite/<run_id>
+            ref_name = ref_line.removeprefix("refs/forgerwrite/")
+            if ref_name == ref_line:
+                continue  # unexpected format
+            run_dir = runs_dir / ref_name if runs_dir else None
+            if not run_dir or not run_dir.exists():
+                subprocess.run(
+                    ["git", "update-ref", "-d", f"refs/forgerwrite/{ref_name}"],
+                    cwd=root,
+                    capture_output=True,
+                )
+                cleaned_refs += 1
+    except Exception:
+        pass
 
-    _json_out({"ok": True, "cleaned": cleaned}, json_flag)
+    _json_out({"ok": True, "cleaned_runs": cleaned_runs, "cleaned_refs": cleaned_refs}, json_flag)
 
 
 @app.command()
