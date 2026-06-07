@@ -17,8 +17,8 @@ from typing import Any
 from .artifacts import generate_run_id, init_run_dir, write_artifact
 from .config import ForgerWriteConfig
 from .context import build_context_packet
-from .dead_letter import write_dead_letter
 from .contracts.registry import ContractRegistry
+from .dead_letter import write_dead_letter
 from .forge.forge import preview_operations as forge_preview
 from .forge.git_utils import (
     assert_clean_worktree,
@@ -328,10 +328,10 @@ class SliceCoordinator:
     def _restore_apply_snapshot(self) -> None:
         """Restore the apply snapshot if it exists. No-op on failure."""
         if self._run_id:
-            try:
+            import contextlib
+
+            with contextlib.suppress(Exception):
                 restore_snapshot(self._repo_root, self._run_id)
-            except Exception:
-                pass
 
     def _record(self, final_status: str) -> None:
         run_meta = {

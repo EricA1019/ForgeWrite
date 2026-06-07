@@ -40,22 +40,10 @@ Then read this file fully before doing anything else in this session.
 - CI pipeline (ruff, mypy, pytest, pip-audit, semgrep, trivy)
 
 **Not yet built:**
-- Functional repair loop — `_maybe_repair` is a stub; does not re-invoke the model
-- Phase 0 spike reports — directories exist but contain no reports
-- Snapshot ref cleanup after successful runs (`_cleanup()` is dead code)
-- Doctor auto-run on init/approve (spec §5.11)
 - End-to-end acceptance tests with real llama.cpp + OmniCoder (Phase 6)
 
-**Known issues (remediation plan v2 at docs/remediation-plan.md):**
-- Coordinator `_preview()` duplicates `forge.preview_operations()` logic — DRY fix pending (B3)
-- `slice_id` hardcoded to `"unknown"` in run.json — correlation lost (N1)
-- Context packet lacks `schema_id` field (N4)
-- `_init_run()` defined but never called — dead code (N5)
-- No shared doctor function — `init`/`approve` auto-run blocked on extraction (N3, Step 0)
-- `cleanup_snapshot()` never called — stale git refs (N2)
-- Snapshot cleanup pending — go to N2 fix
-- Repair loop stub — `_maybe_repair` passes `{}` and never re-invokes model (B1)
-- Three spike report directories empty (B2)
+**Known issues:**
+- All 8 audit findings (B1-B3, N1-N5) resolved — see docs/remediation-plan.md
 
 ## Routing Table
 

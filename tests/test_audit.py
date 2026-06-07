@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 
 class TestAudit:
     """Tests for write_audit_event()."""
@@ -44,5 +42,5 @@ class TestAudit:
         write_audit_event(run_dir, "restore")
         lines = (run_dir / "audit.jsonl").read_text().strip().split("\n")
         assert len(lines) == 3
-        events = [json.loads(l) for l in lines]
+        events = [json.loads(line) for line in lines]
         assert [e["event_type"] for e in events] == ["approve", "apply", "restore"]

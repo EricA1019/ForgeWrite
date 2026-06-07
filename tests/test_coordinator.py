@@ -81,7 +81,9 @@ class TestSliceCoordinator:
             backend=FakeModelBackend(),
         )
 
-    def test_coordinator_creates_run_directory_on_start(self, coordinator: object, tmp_path: Path) -> None:
+    def test_coordinator_creates_run_directory_on_start(
+        self, coordinator: object, tmp_path: Path
+    ) -> None:
         """Running the pipeline creates the run artifact directory."""
         from forgerwrite_mcp.coordinator import SliceCoordinator
 
@@ -169,7 +171,7 @@ class TestSliceCoordinator:
         )
 
     def test_snapshot_cleanup_wired_in_coordinator(
-        self, coordinator: object, tmp_path: Path
+        self, coordinator: object, tmp_path: Path  # noqa: ARG002
     ) -> None:
         """cleanup_snapshot is imported and callable from the coordinator.
 
@@ -179,11 +181,9 @@ class TestSliceCoordinator:
         """
         import subprocess
 
-        from forgerwrite_mcp.coordinator import SliceCoordinator
         from forgerwrite_mcp.forge.git_utils import cleanup_snapshot, create_snapshot
 
         # Direct verification: create + cleanup round-trip works in this repo
-        coord: SliceCoordinator = coordinator  # type: ignore[assignment]
         run_id = "run_cleanup_test"
         create_snapshot(tmp_path, run_id)
         result = subprocess.run(

@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-07
 **Branch:** `dev` (ahead of `main`)
-**Phase:** Phase 4 complete
+**Phase:** Phase 4 remediation complete — all 8 audit findings resolved
 
 ---
 
@@ -107,24 +107,24 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 | `_generate_operations()` | ✅ | `local_model.py` Protocol | 2 |
 | `_validate_semantic()` | ✅ | `validation/semantic.py` | 2 |
 | `_validate_result()` | ✅ | `validation/runner.py` | 3 |
-| `_maybe_repair()` | ✅ | `repair.py` | 3 |
+| `_maybe_repair()` | ✅ | `repair.py` + coordinator loop | 4 |
 | `_write_dead_letter()` | ✅ | `dead_letter.py` (centralized) | 4 |
+| `_preview()` | ✅ | `forge.preview_operations()` (DRY) | 4 |
+| `_init_run()` | ✅ | Removed (dead code) | 4 |
 | `inspect` command | ✅ | `summary.py` (Markdown) | 4 |
 
-## Phase 4 Deliverables
+## Audit Remediation — All 8 Findings Resolved
 
-| Item | Status | Description |
-|------|--------|-------------|
-| Dead letter module | ✅ | `dead_letter.py` — centralized, used by coordinator + CLI abort |
-| Audit events | ✅ | `audit.py` — JSONL log, integrated in coordinator/approval/CLI |
-| Markdown summary | ✅ | `summary.py` — generates full run summary from artifacts |
-| README | ✅ | Full rewrite with architecture, tools, safety, quick start |
-| llava-cpp-setup.md | ✅ | Step-by-step llama.cpp + OmniCoder setup |
-| operations.md | ✅ | All 6 operation types with JSON schema examples |
-| configuration.md | ✅ | Full config reference with all 7 sections |
-| VS Code MCP | ✅ | `.vscode/mcp.json` for VS Code integration |
-| CI pipeline | ✅ | `.github/workflows/ci.yml` — ruff, mypy, pytest, pip-audit, semgrep, trivy |
-| Config template | ✅ | `_CONFIG_TEMPLATE` matches all Pydantic model fields |
+| ID | Finding | Resolution |
+|----|---------|------------|
+| B1 | Repair loop stub | Full loop: model re-invoke, dual validation, re-preview, budget tracking |
+| B2 | Spike reports absent | Three retrospective reports in `spikes/` |
+| B3 | Preview missing new files | DRY fix: `forge.preview_operations()` |
+| N1 | slice_id hardcoded | Extracted from slice contract, propagated to run.json |
+| N2 | Stale snapshot refs | `cleanup_snapshot()` on pass, orphan ref GC |
+| N3 | No doctor auto-run | `--skip-doctor` flag, auto-run on init/approve |
+| N4 | Context no schema_id | Added `"schema_id": "forgerwrite.context_packet.v1"` |
+| N5 | _init_run() dead code | Removed |
 
 ## Phase 5 Readiness
 

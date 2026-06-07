@@ -8,7 +8,7 @@ when a run cannot be recovered.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,7 @@ def write_dead_letter(
 
     record = {
         "reason": reason,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "payload": payload or {},
     }
     dest = run_dir / "dead_letter.json"

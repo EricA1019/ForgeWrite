@@ -282,9 +282,9 @@ def gc(
     json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
 ) -> None:
     """Clean expired run directories and orphan snapshot refs."""
-    import subprocess
     import shutil
-    from datetime import datetime, timedelta, timezone
+    import subprocess
+    from datetime import datetime, timedelta
 
     from .config import load_config
 
@@ -299,7 +299,7 @@ def gc(
     cleaned_runs = 0
 
     if runs_dir.exists():
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff = datetime.now(UTC) - timedelta(days=retention_days)
         for run_dir in list(runs_dir.iterdir()):
             if run_dir.is_dir():
                 run_json = run_dir / "run.json"

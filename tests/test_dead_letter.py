@@ -3,8 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
-
 
 class TestDeadLetter:
     """Tests for write_dead_letter()."""

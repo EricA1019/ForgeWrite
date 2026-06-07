@@ -9,7 +9,7 @@ Events are appended to audit.jsonl in JSON Lines format (one JSON object per lin
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,7 +31,7 @@ def write_audit_event(
     """
     event = {
         "event_type": event_type,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "details": details or {},
     }
     dest = run_dir / "audit.jsonl"
