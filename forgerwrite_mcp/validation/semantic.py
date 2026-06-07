@@ -129,13 +129,20 @@ class GeneratedPathRule:
 
 
 class PermissionRule:
-    """Enforce permission flags from config."""
+    """Enforce permission flags from config.
+
+    The `permissions` parameter from config is the source of truth.
+    Constructor args are preserved for backward compatibility but
+    the `check()` method reads from the `permissions` config, not
+    from instance state.
+    """
 
     def __init__(
         self,
         require_approval_for_delete: bool = True,
         require_approval_for_full_file_replace: bool = True,
     ) -> None:
+        # Preserved for backward compatibility; check() reads from permissions config.
         self._delete: bool = require_approval_for_delete
         self._full_replace: bool = require_approval_for_full_file_replace
 
@@ -148,9 +155,9 @@ class PermissionRule:
     ) -> list[str]:
         errors: list[str] = []
         for op in batch.get("operations", []):
-            if op.get("op") == "delete_file" and self._delete:
+            if op.get("op") == "delete_file" and permissions.require_approval_for_delete:
                 errors.append(f"Delete operation requires approval: '{op.get('path')}'")
-            if op.get("op") == "replace_file" and self._full_replace:
+            if op.get("op") == "replace_file" and permissions.require_approval_for_full_file_replace:
                 errors.append(f"Full file replace requires approval: '{op.get('path')}'")
         return errors
 

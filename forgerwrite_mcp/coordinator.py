@@ -73,17 +73,20 @@ class SliceCoordinator:
         config: ForgerWriteConfig,
         registry: OperationRegistry,
         backend: LocalModelBackend,
+        auto_approve: bool = False,
     ) -> None:
         self._repo_root = repo_root.resolve()
         self._config = config
         self._registry = registry
         self._backend = backend
+        self._auto_approve = auto_approve
         self._contract_registry = ContractRegistry(Path(__file__).parent.parent / "schemas")
 
         # Per-run state
         self._run_id: str = ""
         self._run_dir: Path | None = None
         self._slice_id: str = ""
+        self._context_packet: dict[str, Any] = {}
 
     def run(self, handoff: dict[str, Any], slice_contract: dict[str, Any]) -> RunOutcome:
         """Execute the full pipeline for a handoff + slice.
@@ -138,20 +141,50 @@ class SliceCoordinator:
         return _STATUS_CONTRACTS_VALIDATED
 
     def _build_context(self, handoff: dict, slice_contract: dict) -> str:
-        context = build_context_packet(
+        self._context_packet = build_context_packet(
             self._repo_root,
             handoff,
             slice_contract,
             self._config.limits,
             hygiene=self._config.hygiene,
         )
-        write_artifact(self._run_dir, "context_packet.json", context)
+        write_artifact(self._run_dir, "context_packet.json", self._context_packet)
         return _STATUS_CONTEXT_READY
 
     async def _generate_operations(self, handoff: dict, slice_contract: dict) -> str:
         # Uses LocalModelBackend Protocol (Phase 2: real backends in local_model / llama_client)
-        system_prompt = "You are a coding assistant producing structured JSON operations."
-        user_prompt = json.dumps({"slice": slice_contract, "handoff": handoff})
+        system_prompt = (
+            "You are a coding assistant that produces structured JSON operation batches.\n\n"
+            "Respond ONLY with a JSON object matching this exact structure:\n"
+            '{\n'
+            '  "batch_id": "unique-id",\n'
+            '  "slice_id": "<from slice contract>",\n'
+            '  "operations": [\n'
+            '    {\n'
+            '      "op": "<operation_type>",\n'
+            '      "path": "<relative_file_path>",\n'
+            '      "content": "<the content to write or insert>"\n'
+            '    }\n'
+            '  ]\n'
+            '}\n\n'
+            "VALID OPERATION TYPES AND THEIR REQUIRED FIELDS:\n"
+            '- create_file: op, path, content\n'
+            '- replace_file: op, path, content\n'
+            '- replace_line_range: op, path, start_line, end_line, content\n'
+            '- insert_after_line: op, path, after_line, content\n'
+            '- insert_before_line: op, path, before_line, content\n'
+            '- delete_file: op, path\n\n'
+            "RULES:\n"
+            "1. Every operation (except delete_file) MUST have a 'content' field with the text to write.\n"
+            "2. Use the exact file paths from the allowed_files list.\n"
+            "3. Use line numbers from the provided file contents.\n"
+            "4. Line numbers are 1-indexed. Line ranges are inclusive."
+        )
+        user_prompt = json.dumps({
+            "task": handoff.get("description", ""),
+            "slice": slice_contract,
+            "files": self._context_packet.get("files", {}),
+        })
         self._operation_batch_schema = json.loads(
             (Path(__file__).parent.parent / "schemas" / "operation_batch.v1.json").read_text()
         )
@@ -190,7 +223,11 @@ class SliceCoordinator:
         return _STATUS_PREVIEW_READY
 
     def _await_approval(self) -> str:
-        # Non-blocking check: approval record is written by CLI
+        # Auto-approve for testing/CI; otherwise check approval record
+        if self._auto_approve:
+            approval_path = self._run_dir / "approval_record.json"
+            approval_path.write_text(json.dumps({"approved": True, "run_id": self._run_id}))
+            return _STATUS_APPROVED
         approval_path = self._run_dir / "approval_record.json"
         if approval_path.exists():
             record = json.loads(approval_path.read_text())

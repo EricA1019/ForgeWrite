@@ -79,6 +79,60 @@ class TestSemanticValidator:
         with pytest.raises(SemanticValidationError, match="outside allowed"):
             v.validate(batch, slice_contract)
 
+    def test_permission_rule_reads_config_for_replace_file(self) -> None:
+        """PermissionRule reads require_approval_for_full_file_replace from config."""
+        from forgerwrite_mcp.config import PermissionsConfig
+        from forgerwrite_mcp.validation.semantic import SemanticValidator
+
+        v = SemanticValidator()
+        from forgerwrite_mcp.validation.semantic import PermissionRule
+
+        v.register(PermissionRule())
+        batch = {
+            "operations": [{"op": "replace_file", "path": "main.rs", "content": "new"}],
+        }
+        slice_contract = {"allowed_files": ["main.rs"]}
+        # With approval disabled in config, no error should be raised
+        perms = PermissionsConfig(require_approval_for_full_file_replace=False)
+        v.validate(batch, slice_contract, permissions=perms)
+
+    def test_permission_rule_reads_config_for_delete_file(self) -> None:
+        """PermissionRule reads require_approval_for_delete from config."""
+        from forgerwrite_mcp.config import PermissionsConfig
+        from forgerwrite_mcp.validation.semantic import SemanticValidator
+
+        v = SemanticValidator()
+        from forgerwrite_mcp.validation.semantic import PermissionRule
+
+        v.register(PermissionRule())
+        batch = {
+            "operations": [{"op": "delete_file", "path": "main.rs"}],
+        }
+        slice_contract = {"allowed_files": ["main.rs"]}
+        # With delete approval disabled in config, no error should be raised
+        perms = PermissionsConfig(require_approval_for_delete=False)
+        v.validate(batch, slice_contract, permissions=perms)
+
+    def test_permission_rule_still_blocks_when_config_enforces(self) -> None:
+        """PermissionRule still blocks when config requires approval."""
+        from forgerwrite_mcp.config import PermissionsConfig
+        from forgerwrite_mcp.validation.semantic import (
+            SemanticValidationError,
+            SemanticValidator,
+        )
+
+        v = SemanticValidator()
+        from forgerwrite_mcp.validation.semantic import PermissionRule
+
+        v.register(PermissionRule())
+        batch = {
+            "operations": [{"op": "replace_file", "path": "main.rs", "content": "new"}],
+        }
+        slice_contract = {"allowed_files": ["main.rs"]}
+        # Default config has require_approval_for_full_file_replace=True
+        with pytest.raises(SemanticValidationError, match="requires approval"):
+            v.validate(batch, slice_contract)
+
     def test_allows_valid_batch_within_scope(self) -> None:
         """Valid batch within scope passes validation."""
         v = self._make_validator()
