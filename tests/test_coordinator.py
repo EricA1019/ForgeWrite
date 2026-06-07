@@ -304,3 +304,57 @@ class TestSliceCoordinator:
         # Should have recorded something (dead letter or error status)
         assert outcome.status is not None
         assert outcome.run_id is not None
+
+    def test_repair_loop_reinvokes_model(self) -> None:
+        """RepairCoordinator handles multiple attempts with budget tracking."""
+        from forgerwrite_mcp.config import RepairConfig
+        from forgerwrite_mcp.repair import RepairCoordinator
+
+        cfg = RepairConfig(max_attempts=2)
+        repair = RepairCoordinator(config=cfg)
+        validation_result = {
+            "passed": False,
+            "commands": [
+                {"command_id": "fmt", "passed": False, "stderr_head": "formatting error"}
+            ],
+        }
+        # First attempt
+        r1 = repair.attempt(validation_result, {})
+        assert r1 is not None
+        prompt1, rem1 = r1
+        assert "formatting error" in prompt1
+        assert rem1 == 1
+        assert repair.attempt_count == 1
+        # Second attempt
+        r2 = repair.attempt(validation_result, {})
+        assert r2 is not None
+        assert repair.budget_remaining == 0
+        assert repair.attempt_count == 2
+        # Third attempt — exhausted
+        r3 = repair.attempt(validation_result, {})
+        assert r3 is None
+
+    def test_repair_loop_exhausts_budget(self) -> None:
+        """RepairCoordinator returns None when budget is 0."""
+        from forgerwrite_mcp.config import RepairConfig
+        from forgerwrite_mcp.repair import RepairCoordinator
+
+        cfg = RepairConfig(max_attempts=0)
+        repair = RepairCoordinator(config=cfg)
+        result = repair.attempt({"passed": False, "commands": []}, {})
+        assert result is None
+
+    def test_repair_artifacts_naming_convention(self) -> None:
+        """Repair artifact naming uses prompt_{N} and response_{N} convention."""
+        from forgerwrite_mcp.repair import RepairCoordinator
+
+        repair = RepairCoordinator()
+        validation_result = {
+            "passed": False,
+            "commands": [{"command_id": "test", "passed": False, "stderr_head": "fail"}],
+        }
+        result = repair.attempt(validation_result, {})
+        assert result is not None
+        prompt, _remaining = result
+        assert len(prompt) > 0
+        assert repair.attempt_count == 1

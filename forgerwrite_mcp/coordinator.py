@@ -152,10 +152,12 @@ class SliceCoordinator:
         # Uses LocalModelBackend Protocol (Phase 2: real backends in local_model / llama_client)
         system_prompt = "You are a coding assistant producing structured JSON operations."
         user_prompt = json.dumps({"slice": slice_contract, "handoff": handoff})
-        schema = json.loads(
+        self._operation_batch_schema = json.loads(
             (Path(__file__).parent.parent / "schemas" / "operation_batch.v1.json").read_text()
         )
-        raw = await self._backend.generate_operation_batch(system_prompt, user_prompt, schema)
+        raw = await self._backend.generate_operation_batch(
+            system_prompt, user_prompt, self._operation_batch_schema
+        )
         write_artifact(self._run_dir, "local_model_raw_attempt_1.txt", {"raw": raw})
         self._operation_batch = json.loads(raw)
         write_artifact(self._run_dir, "operation_batch.json", self._operation_batch)
@@ -225,14 +227,111 @@ class SliceCoordinator:
         return _STATUS_VALIDATION_FAILED
 
     def _maybe_repair(self, slice_contract: dict) -> str:
+        """Bounded repair loop — re-invoke model with validation errors.
+
+        Loops up to repair.max_attempts times:
+        1. Build repair prompt from validation errors
+        2. Re-invoke local model
+        3. Schema-validate + semantic-validate
+        4. Re-preview + re-apply + re-validate
+        5. If validation passes → success; else → loop
+        """
+        import asyncio
+
         repair = RepairCoordinator(config=self._config.repair)
-        write_artifact(self._run_dir, "validation_result.json", {})
-        # In a full implementation, we'd re-invoke the model with repair context.
-        # For MVP: attempt once, return failure status.
-        outcome = repair.attempt({}, slice_contract)
-        if outcome.success:
-            return _STATUS_REPAIR_GENERATED
+
+        # Read the actual validation result (not overwriting with {})
+        validation_path = self._run_dir / "validation_result.json"
+        if validation_path.exists():
+            validation_result = json.loads(validation_path.read_text(encoding="utf-8"))
+        else:
+            validation_result = {
+                "passed": False,
+                "commands": [],
+            }
+
+        while True:
+            result = repair.attempt(validation_result, slice_contract)
+            if result is None:
+                # Budget exhausted — restore snapshot and fail
+                self._restore_apply_snapshot()
+                return _STATUS_VALIDATION_FAILED
+
+            prompt, _remaining = result
+            attempt_n = repair.attempt_count
+
+            # Write repair prompt artifact
+            write_artifact(
+                self._run_dir,
+                f"repair_prompt_{attempt_n}.txt",
+                {"prompt": prompt},
+            )
+
+            # Re-invoke model with repair prompt
+            try:
+                raw = asyncio.run(
+                    self._backend.generate_operation_batch(
+                        "You are a coding assistant fixing validation errors.",
+                        prompt,
+                        self._operation_batch_schema,
+                    )
+                )
+            except Exception:
+                # Model error — continue to next attempt
+                continue
+
+            # Write raw response artifact
+            write_artifact(
+                self._run_dir,
+                f"repair_response_{attempt_n}.json",
+                {"raw": raw},
+            )
+
+            # Parse and schema-validate
+            try:
+                self._operation_batch = json.loads(raw)
+                self._validate_schema()
+            except Exception:
+                continue
+
+            # Semantic-validate (with original slice scope)
+            try:
+                self._validate_semantic(slice_contract)
+            except Exception:
+                continue
+
+            # Re-preview (applies ops, generates diff, restores)
+            try:
+                self._preview(slice_contract)
+            except Exception:
+                continue
+
+            # Re-apply
+            status = self._apply(slice_contract)
+            if status != _STATUS_APPLIED:
+                continue
+
+            # Re-validate
+            status = self._validate_result()
+            if status == _STATUS_VALIDATION_PASSED:
+                cleanup_snapshot(self._repo_root, self._run_id)
+                return _STATUS_VALIDATION_PASSED
+
+            # Validation failed again — update result for next prompt
+            if self._run_dir is not None:
+                vr_path = self._run_dir / "validation_result.json"
+                if vr_path.exists():
+                    validation_result = json.loads(vr_path.read_text(encoding="utf-8"))
+
         return _STATUS_VALIDATION_FAILED
+
+    def _restore_apply_snapshot(self) -> None:
+        """Restore the apply snapshot if it exists. No-op on failure."""
+        if self._run_id:
+            try:
+                restore_snapshot(self._repo_root, self._run_id)
+            except Exception:
+                pass
 
     def _record(self, final_status: str) -> None:
         run_meta = {

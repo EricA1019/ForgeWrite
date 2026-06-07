@@ -25,40 +25,59 @@ class RepairError(PublicError):
         super().__init__(code=REPAIR_ERROR, message=message)
 
 
-class RepairOutcome:
-    """Result of a repair attempt."""
-
-    def __init__(
-        self,
-        success: bool = False,
-        attempts_used: int = 0,
-        new_operations: dict[str, Any] | None = None,
-        message: str = "",
-    ) -> None:
-        self.success = success
-        self.attempts_used = attempts_used
-        self.new_operations = new_operations or {}
-        self.message = message
-
-
 class RepairCoordinator:
     """Manages the bounded repair loop.
 
     Instantiated by SliceCoordinator when validation fails. Tracks
     attempts and enforces config limits.
+
+    Usage:
+        repair = RepairCoordinator(config=...)
+        while True:
+            result = repair.attempt(validation_result, slice_contract)
+            if result is None:
+                break  # budget exhausted
+            prompt, remaining = result
+            # Call model with prompt, validate, apply...
     """
 
     def __init__(self, *, config: RepairConfig | None = None) -> None:
-        self._config: RepairConfig = config or RepairConfig()
-        self._max_attempts: int = self._config.max_attempts
+        self._cfg: RepairConfig = config or RepairConfig()
+        self._max_attempts: int = self._cfg.max_attempts
         self._attempt_count: int = 0
-        self._scope_must_match: bool = self._config.scope_must_match_original_slice
+        self._scope_must_match: bool = self._cfg.scope_must_match_original_slice
 
-    def _increment_attempt(self) -> None:
+    @property
+    def attempt_count(self) -> int:
+        """Number of attempts used so far."""
+        return self._attempt_count
+
+    @property
+    def budget_remaining(self) -> int:
+        """Remaining repair attempts."""
+        return max(0, self._max_attempts - self._attempt_count)
+
+    def attempt(
+        self,
+        validation_result: dict[str, Any],
+        slice_contract: dict[str, Any],
+    ) -> tuple[str, int] | None:
+        """Run one repair attempt. Returns (prompt, budget_remaining) or None.
+
+        Args:
+            validation_result: The failed validation result dict.
+            slice_contract: The original slice contract for scope enforcement.
+
+        Returns:
+            Tuple of (repair_prompt, budget_remaining) if budget remains,
+            or None if the repair budget is exhausted.
+        """
+        if self._attempt_count >= self._max_attempts:
+            return None
+
         self._attempt_count += 1
-
-    def _budget_exhausted(self) -> bool:
-        return self._attempt_count >= self._max_attempts
+        repair_prompt = self._build_repair_prompt(validation_result)
+        return (repair_prompt, self.budget_remaining)
 
     def _build_repair_prompt(self, validation_result: dict[str, Any]) -> str:
         """Build a repair prompt that includes the validation failure details."""
@@ -73,44 +92,4 @@ class RepairCoordinator:
         return (
             "The following validation errors were detected. Please fix the code "
             "and produce a corrected operation batch.\n\n" + "\n".join(errors)
-        )
-
-    def attempt(
-        self,
-        validation_result: dict[str, Any],
-        slice_contract: dict[str, Any],
-    ) -> RepairOutcome:
-        """Run one repair attempt.
-
-        Args:
-            validation_result: The failed validation result.
-            slice_contract: The original slice contract for scope enforcement.
-
-        Returns:
-            RepairOutcome with success status.
-        """
-        if self._budget_exhausted():
-            return RepairOutcome(
-                success=False,
-                attempts_used=self._attempt_count,
-                message=f"Repair budget exhausted ({self._max_attempts} attempts)",
-            )
-
-        self._increment_attempt()
-
-        # Build feedback prompt (used by SliceCoordinator to re-generate)
-        repair_prompt = self._build_repair_prompt(validation_result)
-
-        # The SliceCoordinator will:
-        #   1. Call the model with this repair prompt
-        #   2. Validate the new operations
-        #   3. Preview and apply
-        # We return an outcome that signals "try again with this prompt"
-        return RepairOutcome(
-            success=False,
-            attempts_used=self._attempt_count,
-            message=(
-                f"Repair attempt {self._attempt_count}/{self._max_attempts}: "
-                f"{repair_prompt[:200]}..."
-            ),
         )

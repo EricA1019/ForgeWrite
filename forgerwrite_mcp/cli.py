@@ -112,9 +112,22 @@ def _json_out(data: dict, json_flag: bool) -> None:
 @app.command()
 def init(
     json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+    skip_doctor: bool = typer.Option(
+        False, "--skip-doctor", help="Skip environment checks."
+    ),
 ) -> None:
     """Scaffold .forgerwrite/ directory and config."""
     root = _get_root()
+
+    # Auto-run doctor checks before scaffolding (spec §5.11)
+    if not skip_doctor:
+        from .doctor import run_doctor_checks
+
+        checks = run_doctor_checks(root)
+        if not all(checks.values()):
+            failed = [k for k, v in checks.items() if not v]
+            console.print(f"[yellow]Warning: doctor checks failed: {', '.join(failed)}[/yellow]")
+
     fw_dir = root / ".forgerwrite"
     fw_dir.mkdir(exist_ok=True)
     (fw_dir / "contracts").mkdir(exist_ok=True)
@@ -157,9 +170,22 @@ def approve(
     run_id: str = typer.Argument(..., help="Run ID to approve."),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show diff without approving."),
     json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+    skip_doctor: bool = typer.Option(
+        False, "--skip-doctor", help="Skip environment checks."
+    ),
 ) -> None:
     """Approve a run after reviewing the preview diff."""
     root = _get_root()
+
+    # Auto-run doctor checks before approving (spec §5.11)
+    if not skip_doctor:
+        from .doctor import run_doctor_checks
+
+        checks = run_doctor_checks(root)
+        if not all(checks.values()):
+            failed = [k for k, v in checks.items() if not v]
+            console.print(f"[yellow]Warning: doctor checks failed: {', '.join(failed)}[/yellow]")
+
     run_dir = root / ".forgerwrite" / "runs" / run_id
     diff_path = run_dir / "preview.diff"
 
