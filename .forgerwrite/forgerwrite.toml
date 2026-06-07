@@ -1,0 +1,55 @@
+[project]
+name = "my-project"
+language = "rust"
+repo_root = "."
+
+[local_model]
+provider = "llama_cpp"
+endpoint = "http://127.0.0.1:8080/v1"
+model = "omnicoder-9b"
+temperature = 0.20
+top_p = 0.90
+top_k = 20
+max_tokens = 2048
+json_retries = 2
+request_timeout_seconds = 180
+retry_base_delay_seconds = 0.5
+retry_max_delay_seconds = 8.0
+retry_multiplier = 2.0
+
+[limits]
+context_file_max_bytes = 200000
+context_total_max_bytes = 8000000
+validation_output_max_chars = 16000
+operation_batch_max_operations = 32
+operation_content_max_bytes = 200000
+artifact_retention_days = 90
+
+[validation]
+default_timeout_seconds = 300
+graceful_kill_timeout_seconds = 5
+
+[validation.commands]
+fmt = "cargo fmt -- --check"
+check = "cargo check"
+test = "cargo test"
+clippy = "cargo clippy --all-targets --all-features -- -D warnings"
+
+[validation.profiles]
+rust_default = ["fmt", "check", "test", "clippy"]
+
+[permissions]
+require_clean_worktree = true
+allow_unknown_commands = false
+require_approval_for_new_dependencies = true
+require_approval_for_delete = true
+require_approval_for_full_file_replace = true
+allow_unified_diff_fallback = false
+
+[hygiene]
+generated_globs = ["target/**"]
+vendor_globs = ["vendor/**"]
+
+[repair]
+max_attempts = 2
+scope_must_match_original_slice = true
