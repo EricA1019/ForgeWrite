@@ -138,7 +138,7 @@ class SliceCoordinator:
         return _STATUS_CONTEXT_READY
 
     async def _generate_operations(self, handoff: dict, slice_contract: dict) -> str:
-        # Stub: in Phase 1 we use the fake backend
+        # Uses LocalModelBackend Protocol (Phase 2: real backends in local_model / llama_client)
         system_prompt = "You are a coding assistant producing structured JSON operations."
         user_prompt = json.dumps({"slice": slice_contract, "handoff": handoff})
         schema = json.loads(
