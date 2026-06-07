@@ -24,6 +24,14 @@ from .errors import LOCAL_MODEL_ERROR, PublicError
 _DEFAULT_CIRCUIT_BREAKER_THRESHOLD: int = 5
 _DEFAULT_CIRCUIT_BREAKER_RESET_SECONDS: float = 30.0
 
+# ── Generation defaults ────────────────────────────────────────────────────
+# Gemma 4 recommended: temperature=1.0, top_p=0.95, top_k=64
+
+_GENERATION_TEMPERATURE: float = 1.0
+_GENERATION_TOP_P: float = 0.95
+_GENERATION_TOP_K: int = 64
+_GENERATION_MAX_TOKENS: int = 4096
+
 
 class LlamaCppClient:
     """HTTP client for llama.cpp server implementing LocalModelBackend.
@@ -105,8 +113,10 @@ class LlamaCppClient:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.2,
-            "max_tokens": 2048,
+            "temperature": _GENERATION_TEMPERATURE,
+            "top_p": _GENERATION_TOP_P,
+            "top_k": _GENERATION_TOP_K,
+            "max_tokens": _GENERATION_MAX_TOKENS,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
