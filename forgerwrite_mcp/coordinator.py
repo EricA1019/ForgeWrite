@@ -17,6 +17,7 @@ from typing import Any
 from .artifacts import generate_run_id, init_run_dir, write_artifact
 from .config import ForgerWriteConfig
 from .context import build_context_packet
+from .dead_letter import write_dead_letter
 from .contracts.registry import ContractRegistry
 from .forge.git_utils import (
     assert_clean_worktree,
@@ -26,6 +27,8 @@ from .forge.git_utils import (
 )
 from .local_model import LocalModelBackend
 from .operations.registry import OperationRegistry
+from .repair import RepairCoordinator
+from .validation.runner import run_validation_profile
 from .validation.semantic import default_validator
 
 
@@ -103,11 +106,14 @@ class SliceCoordinator:
             if status == _STATUS_APPROVED:
                 status = self._apply(slice_contract)
                 if status == _STATUS_APPLIED:
+                    from .audit import write_audit_event
+
+                    write_audit_event(self._run_dir, "apply", {"run_id": self._run_id})
                     status = self._validate_result()
                     if status == _STATUS_VALIDATION_FAILED:
                         status = self._maybe_repair(slice_contract)
         except Exception as exc:
-            self._write_dead_letter(str(exc))
+            write_dead_letter(self._run_dir, str(exc))
             return RunOutcome(
                 run_id=self._run_id,
                 status=status,
@@ -215,11 +221,25 @@ class SliceCoordinator:
         return _STATUS_APPLIED
 
     def _validate_result(self) -> str:
-        # Stub: full validation runner in Phase 3
-        return _STATUS_VALIDATION_PASSED
+        result = run_validation_profile(
+            self._repo_root,
+            "rust_default",
+            self._config.validation,
+            limits=self._config.limits,
+        )
+        write_artifact(self._run_dir, "validation_result.json", result)
+        if result["passed"]:
+            return _STATUS_VALIDATION_PASSED
+        return _STATUS_VALIDATION_FAILED
 
     def _maybe_repair(self, slice_contract: dict) -> str:
-        # Stub: repair coordinator in Phase 3
+        repair = RepairCoordinator(config=self._config.repair)
+        write_artifact(self._run_dir, "validation_result.json", {})
+        # In a full implementation, we'd re-invoke the model with repair context.
+        # For MVP: attempt once, return failure status.
+        outcome = repair.attempt({}, slice_contract)
+        if outcome.success:
+            return _STATUS_REPAIR_GENERATED
         return _STATUS_VALIDATION_FAILED
 
     def _record(self, final_status: str) -> None:
@@ -234,16 +254,6 @@ class SliceCoordinator:
         }
         write_artifact(self._run_dir, "run.json", run_meta)
 
-    def _write_dead_letter(self, reason: str) -> None:
-        if self._run_dir:
-            write_artifact(
-                self._run_dir,
-                "dead_letter.json",
-                {
-                    "reason": reason,
-                    "timestamp": datetime.now(UTC).isoformat(),
-                },
-            )
 
     def _cleanup(self) -> None:
         if self._run_id:

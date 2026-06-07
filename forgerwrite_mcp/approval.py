@@ -63,6 +63,10 @@ def write_approval_record(run_dir: Path) -> Path:
             f.write(record.model_dump_json(indent=2) + "\n")
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
+
+    from .audit import write_audit_event
+
+    write_audit_event(run_dir, "approve", {"run_id": run_dir.name})
     return out
 
 
