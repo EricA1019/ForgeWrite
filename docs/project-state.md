@@ -1,8 +1,8 @@
 # ForgerWrite MCP — Project State
 
 **Date:** 2026-06-07
-**Branch:** `dev` (ahead of `main`)
-**Phase:** Phase 4 remediation complete — all 8 audit findings resolved
+**Branch:** `dev` == `main` @ `efbfe11`
+**Phase:** Phase 0-4 complete, all audit findings resolved — ready for Phase 5 acceptance
 
 ---
 
@@ -18,6 +18,7 @@ forgerwrite_mcp/
 ├── context.py            # Context packet builder (per-file + total limits, SHA256)
 ├── coordinator.py        # SliceCoordinator — 14-state machine, zero stubs, audit+dead_letter
 ├── dead_letter.py        # Centralized dead letter writer (shared by coordinator+CLI)
+├── doctor.py             # Shared run_doctor_checks() — used by CLI + auto-run hooks
 ├── errors.py             # PublicError, ErrorEnvelope, 10 error code constants
 ├── llama_client.py       # HTTP client for llama.cpp (retry + circuit breaker)
 ├── local_model.py        # LocalModelBackend Protocol + FakeLocalModelBackend
