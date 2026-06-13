@@ -17,13 +17,13 @@ repo_root = "."
 [local_model]
 provider = "llama_cpp"
 endpoint = "http://127.0.0.1:8080/v1"
-model = "omnicoder-9b"
-temperature = 0.20
-top_p = 0.90
-top_k = 20
-max_tokens = 2048
+model = "gemma-4-12B-it-qat-UD-Q4_K_XL"
+temperature = 1.0
+top_p = 0.95
+top_k = 64
+max_tokens = 4096
 json_retries = 2
-request_timeout_seconds = 180
+request_timeout_seconds = 600
 retry_base_delay_seconds = 0.5
 retry_max_delay_seconds = 8.0
 retry_multiplier = 2.0
@@ -85,10 +85,10 @@ scope_must_match_original_slice = true
 | `provider` | string | yes | — | Backend provider: `"llama_cpp"` |
 | `endpoint` | string | yes | — | HTTP endpoint URL (include `/v1`) |
 | `model` | string | yes | — | Model name |
-| `temperature` | float | no | `0.2` | Sampling temperature (0.0–2.0) |
-| `top_p` | float | no | `0.9` | Nucleus sampling threshold |
-| `top_k` | int | no | `20` | Top-K sampling |
-| `max_tokens` | int | no | `2048` | Max output tokens |
+| `temperature` | float | no | `1.0` | Sampling temperature (0.0–2.0; Gemma 4 default) |
+| `top_p` | float | no | `0.95` | Nucleus sampling threshold (Gemma 4 default) |
+| `top_k` | int | no | `64` | Top-K sampling (Gemma 4 default) |
+| `max_tokens` | int | no | `4096` | Max output tokens (json_object output is more verbose) |
 | `json_retries` | int | no | `2` | Retries on invalid JSON |
 | `request_timeout_seconds` | int | no | `180` | HTTP request timeout |
 | `retry_base_delay_seconds` | float | no | `0.5` | Starting backoff delay |
@@ -158,6 +158,18 @@ python_default = ["ruff", "mypy", "pytest"]
 |-------|------|----------|---------|-------------|
 | `max_attempts` | int | no | `2` | Maximum repair attempts per run |
 | `scope_must_match_original_slice` | bool | no | `true` | Repair must stay within original slice scope |
+
+### `[rag]`
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `enabled` | bool | no | `false` | Enable RAG prompt enrichment |
+| `index_path` | string | no | `"data/rag/index.tqi"` | Path to turbovec index file |
+| `k_documents` | int | no | `5` | Documents retrieved per query |
+| `embedding_model_name` | string | no | `"Alibaba-NLP/gte-modernbert-base"` | SentenceTransformer model for embeddings |
+| `max_rag_tokens` | int | no | `2048` | Token budget for injected knowledge |
+
+Build the index: `forgerwrite build-index`
 
 ---
 

@@ -1,92 +1,74 @@
 # Llama.cpp Setup for ForgerWrite MCP
 
-ForgerWrite requires a running **llama.cpp server** with the **OmniCoder 9B** model (Q8 quantization or better).
+ForgerWrite is tested with **Gemma 4 12B QAT** (Q4_K_XL GGUF) on an NVIDIA RTX 3060. A `launch-gemma4.sh` script is provided in `scripts/` for the exact build + launch.
 
 ---
 
-## 1. Install llama.cpp
+## 1. Quick Launch (RTX 3060)
 
 ```bash
-git clone https://github.com/ggerganov/llama.cpp.git
-cd llama.cpp
+bash scripts/launch-gemma4.sh
+```
+
+This builds llama.cpp with CUDA and launches the server with the correct flags.
+
+---
+
+## 2. Manual Launch
+
+```bash
+# Build llama.cpp with CUDA support
+cd /path/to/llama.cpp
 mkdir build && cd build
-cmake .. -DLLAMA_CUDA=OFF  # CPU-only; add -DLLAMA_CUDA=ON for NVIDIA GPU
+cmake .. -DLLAMA_CUDA=ON -DLLAMA_CUDA_F16=ON
 cmake --build . --config Release -j$(nproc)
-```
 
----
+# Download Gemma 4 12B QAT
+export MODEL=/home/eric/models/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
 
-## 2. Download OmniCoder 9B
-
-Download from Hugging Face:
-
-```bash
-# GGUF format (Q8_0 quantization recommended)
-huggingface-cli download \
-    nisten/omnicoder-9b-q8_0-GGUF \
-    omnicoder-9b-q8_0.gguf \
-    --local-dir ./models/
-```
-
-Or manually from: <https://huggingface.co/nisten/omnicoder-9b-q8_0-GGUF>
-
----
-
-## 3. Launch the Server
-
-```bash
+# Launch server (CUDA, 32K context, flash attention)
 ./build/bin/llama-server \
-    --model ./models/omnicoder-9b-q8_0.gguf \
+    --model "$MODEL" \
     --host 127.0.0.1 \
     --port 8080 \
-    --ctx-size 8192 \
-    --batch-size 512 \
-    --threads $(nproc) \
-    --gpu-layers 0 \
-    --no-mmap
-```
-
-For GPU offload (NVIDIA), add:
-```bash
-    --gpu-layers 35 \
+    --ctx-size 32768 \
+    --batch-size 2048 \
+    --ubatch-size 512 \
+    --n-gpu-layers 49 \
+    --flash-attn 1 \
     --no-mmap
 ```
 
 ---
 
-## 4. Verify the Server
+## 3. Verify the Server
 
 ```bash
 curl http://127.0.0.1:8080/health
 # → {"status": "ok"}
-
-curl http://127.0.0.1:8080/v1/models
-# → {"object": "list", "data": [{"id": "omnicoder-9b", ...}]}
 ```
 
 ---
 
-## 5. Test JSON Schema Compliance
-
-ForgerWrite's Phase 0 spike validated that OmniCoder 9B with Q8 quantization reliably produces valid JSON matching Draft 2020-12 schemas. Run a quick smoke test:
+## 4. Smoke Test
 
 ```bash
 curl http://127.0.0.1:8080/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{
-        "model": "omnicoder-9b",
+        "model": "gemma-4-12B-it-qat-UD-Q4_K_XL",
         "messages": [
-            {"role": "system", "content": "You are a coding assistant. Output valid JSON only."},
-            {"role": "user", "content": "Create a file called hello.rs with a main function that prints Hello, world!"}
+            {"role": "user", "content": "Fix the import in this file: use calc_lib::add;"}
         ],
-        "temperature": 0.2,
+        "temperature": 1.0,
+        "max_tokens": 4096,
         "response_format": {"type": "json_object"}
     }'
 ```
 
 ---
 
-## 6. Configure ForgerWrite
+## 5. Configure ForgerWrite
 
 Set the endpoint in `.forgerwrite/forgerwrite.toml`:
 
@@ -94,8 +76,11 @@ Set the endpoint in `.forgerwrite/forgerwrite.toml`:
 [local_model]
 provider = "llama_cpp"
 endpoint = "http://127.0.0.1:8080/v1"
-model = "omnicoder-9b"
-temperature = 0.20
+model = "gemma-4-12B-it-qat-UD-Q4_K_XL"
+temperature = 1.0
+top_p = 0.95
+top_k = 64
+max_tokens = 4096
 ```
 
 Run `forgerwrite doctor` to confirm the connection:

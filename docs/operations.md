@@ -8,14 +8,30 @@ ForgerWrite uses **structured JSON operation batches** for all file mutations. T
 
 ```json
 {
-  "schema_id": "forgerwrite.operation_batch.v1",
-  "handoff_id": "<uuid>",
-  "slice_id": "<uuid>",
+  "batch_id": "<unique-batch-id>",
+  "slice_id": "<from-slice-contract>",
   "operations": [
     { "...": "..." }
   ]
 }
 ```
+
+Each operation except `delete_file` **MUST** include a `"content"` field. Operations are validated against `operation_batch.v1.json` (JSON Schema Draft 2020-12). The model's output is also semantically validated for scope, permissions, and size limits.
+
+### RAG Enrichment
+
+If RAG is enabled (`[rag] enabled = true`), the prompt sent to the model is enriched with relevant knowledge from a curated Rust knowledge base (26 documents) plus external references (rust-cookbook, rust-by-example). The enrichment is injected as:
+
+```
+--- RELEVANT KNOWLEDGE ---
+[matched doc 1]
+[matched doc 2]
+---
+--- TASK ---
+[original prompt]
+```
+
+Run `forgerwrite build-index` to (re)build the search index.
 
 ---
 

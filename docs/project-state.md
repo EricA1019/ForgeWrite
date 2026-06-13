@@ -1,8 +1,8 @@
 # ForgerWrite MCP — Project State
 
-**Date:** 2026-06-07
-**Branch:** `dev` == `main` @ `efbfe11`
-**Phase:** Phase 0-4 complete, all audit findings resolved — ready for Phase 5 acceptance
+**Date:** 2026-06-13
+**Branch:** `dev`
+**Phase:** Phase A-D complete (Gemma 4 GPU, RAG pipeline, schema repair, json_object) — ready for Phase E merge to main
 
 ---
 
@@ -80,7 +80,7 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 |-----------|-------|-------|
 | `test_artifacts.py` | 7 | Run ID uniqueness, directory structure, JSON round-trip |
 | `test_errors.py` | 12 | PublicError, ErrorEnvelope, envelope_from sanitization |
-| `config/test_load_config.py` | 10 | Config loading, validation, bounds, defaults |
+| `config/test_load_config.py` | 14 | Config loading, validation, bounds, defaults, RAG section |
 | `paths/test_safe_resolve.py` | 10 | Path traversal, symlink escape, null bytes |
 | `test_dead_letter.py` | 3 | File creation, timestamp, optional payload |
 | `test_audit.py` | 3 | File creation, required fields, JSONL append |
@@ -90,13 +90,18 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 | `forge/test_forge.py` | 7 | Preview diff, apply, restore, TOCTOU, scope enforcement |
 | `operations/test_*.py` | 28 | 6 handlers × 4-5 tests + registry dispatch |
 | `approval/test_approval.py` | 5 | Record creation, stale detection, TOCTOU, locking |
-| `test_coordinator.py` | 5 | State transitions, failure modes, dead letters |
+| `test_coordinator.py` | 11 | State transitions, failure modes, dead letters, schema repair |
 | `test_local_model.py` | 8 | FakeBackend canned responses, failure sim, attempt logging |
-| `test_llama_client.py` | 6 | HTTP mock, JSON retry, circuit breaker, config backoff |
+| `test_llama_client.py` | 6 | HTTP mock, JSON retry, circuit breaker, config backoff, max_tokens |
 | `context/test_build.py` | 6 | Forbidden files, per-file/total limits, SHA256, hygiene |
 | `validation/test_semantic.py` | 7 | Scope, size, forbidden, generated, permissions, custom rules |
 | `validation/test_runner.py` | 8 | Profile dispatch, command failure, timeout, truncation, shell |
 | `test_repair.py` | 7 | Budget enforcement, attempt tracking, feedback prompt |
+| `rag/test_retriever.py` | 12 | Retrieval quality, recall@3, recall@1, relevance ordering |
+| `rag/test_preprocessor.py` | 15 | Curated KB splitting, external doc parsing, HTML comment stripping |
+| `rag/test_index.py` | 9 | Index build, save/load, search round-trip, full pipeline |
+| `rag/test_enricher.py` | 7 | Header injection, doc retrieval, token budget, ordering |
+| `rag/test_integration.py` | 8 | build_rag_enricher factory, coordinator integration, build_rag_index |
 | `test_server.py` | 4 | Boot function, stdout redirect, module import |
 | `test_cli.py` | 5 | Command registration, --json flag, gitignore template |
 
