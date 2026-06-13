@@ -14,7 +14,7 @@ edges:
     condition: when setting up the dev environment or running the project for the first time
   - target: patterns/INDEX.md
     condition: when starting a task — check the pattern index for a matching pattern file
-last_updated: [YYYY-MM-DD]
+last_updated: 2026-06-13
 ---
 
 # Session Bootstrap
@@ -27,23 +27,31 @@ Then read this file fully before doing anything else in this session.
 
 **Working:**
 - 14-state SliceCoordinator pipeline (validate → context → generate → schema → semantic → preview → approve → apply → validate → repair)
+- Schema repair loop: retries on schema/semantic errors (missing fields, wrong types)
 - 10 MCP tools over stdio with stdout-to-stderr redirect to prevent protocol corruption
-- 12 CLI commands (init, doctor, approve, show-diff, inspect, restore, abort, gc, runs list, project status)
+- 13 CLI commands (init, doctor, approve, show-diff, inspect, restore, abort, gc, runs list, project status, build-index)
 - 6 operation handlers via registry (create_file, replace_file, replace_line_range, insert_after_line, insert_before_line, delete_file)
-- 7 config sections with Pydantic validation (project, local_model, limits, validation, permissions, hygiene, repair)
+- 8 config sections with Pydantic validation (project, local_model, limits, validation, permissions, hygiene, repair, rag)
 - Git snapshot create/restore with TOCTOU re-check on apply
 - Hash-bound terminal approval with fcntl file locking
-- LlamaCppClient with exponential backoff retry + circuit breaker
+- LlamaCppClient with json_object response format, exponential backoff retry + circuit breaker, max_tokens from config
+- Gemma 4 12B QAT (Q4_K_XL) on RTX 3060 via CUDA — ~36 tok/s, 256K context
+- RAG pipeline: DocumentPreprocessor (###/## markdown splitter), RagIndex (TurboQuantIndex + gte-modernbert-base), RagRetriever, RagPromptEnricher (~550 lines, 5 modules)
+- RAG factory functions: build_rag_enricher() (one-call from config), build_rag_index() (indexes curated KB + external repos)
+- 26 curated KB documents across 7 sections, 285 rust-cookbook + 198 rust-by-example external docs
+- Schema validation safety net: catches missing content, unknown op types, missing path, out-of-scope files
 - Centralized dead_letter writer + JSONL audit event log
 - Markdown run summary generator
-- 180 unit tests, 0 failures
+- 246 unit tests, 0 failures
+- 8 stress test levels (1-6 operational, 7 schema+code repair, 8 schema validation)
 - CI pipeline (ruff, mypy, pytest, pip-audit, semgrep, trivy)
 
 **Not yet built:**
-- End-to-end acceptance tests with real llama.cpp + OmniCoder (Phase 6)
+- Full external doc index (rebuild via `forgerwrite build-index`, ~500 docs, ~2-3 min CPU)
+- Production deployment / persistent hosting
 
 **Known issues:**
-- All 8 audit findings (B1-B3, N1-N5) resolved — see docs/remediation-plan.md
+- Gemma 4 12B Q4 produces valid JSON with json_object but may still omit fields on first attempt; schema repair loop retries
 
 ## Routing Table
 

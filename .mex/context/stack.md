@@ -12,7 +12,7 @@ edges:
     condition: when the reasoning behind a tech choice is needed
   - target: context/conventions.md
     condition: when understanding how to use a technology in this codebase
-last_updated: 2026-06-07
+last_updated: 2026-06-13
 ---
 
 # Stack
@@ -25,6 +25,13 @@ last_updated: 2026-06-07
 - **httpx 0.27.x+** — async HTTP client for llama.cpp backend
 - **Typer 0.12.x+** — typed CLI with `--json` flag on all commands
 - **Rich 13.x+** — syntax-highlighted terminal output for diffs and summaries
+
+## ML / AI Stack
+- **llama.cpp server** — local inference via `/v1/chat/completions` HTTP endpoint
+- **Gemma 4 12B QAT** (Q4_K_XL GGUF) — primary model, ~6.7GB, ~36 tok/s on RTX 3060 12GB
+- **json_object response_format** — constrains model to produce valid JSON without strict schema (json_schema caused missing `content` fields on 12B Q4)
+- **gte-modernbert-base** (Alibaba-NLP, 149M params) — embedding model for RAG; 768-dim vectors, 8192 token context; via sentence-transformers
+- **turbovec 0.7.0** (TurboQuantIndex) — Rust vector index with Python bindings; 16x compression for RAG document search
 
 ## Key Libraries
 - **pytest 9.x** (not unittest) — all tests use pytest style; `pytest-asyncio` for async tests
