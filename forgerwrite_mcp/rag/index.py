@@ -1,0 +1,97 @@
+"""RAG index — embeds documents and builds a turbovec search index."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import numpy as np
+
+from forgerwrite_mcp.rag.preprocessor import ProcessedDoc
+from forgerwrite_mcp.rag.retriever import RagDocument
+
+
+class RagIndex:
+    """Builds and persists a turbovec index from preprocessed documents.
+
+    Wraps :class:`turbovec.TurboQuantIndex` with embedding, save, and load.
+    After ``build()`` the instance can be passed directly to
+    :class:`~forgerwrite_mcp.rag.retriever.RagRetriever` as the ``index`` parameter.
+    """
+
+    def __init__(self, *, dim: int = 768, bit_width: int = 4) -> None:
+        self._dim = dim
+        self._bit_width = bit_width
+        self._turbovec: object | None = None
+
+    # ── Properties ─────────────────────────────────────────────────────────
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    @property
+    def bit_width(self) -> int:
+        return self._bit_width
+
+    # ── Search (delegated to turbovec) ─────────────────────────────────────
+
+    def search(self, query_vectors: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+        """Search for top-k nearest neighbours. Returns (scores, indices)."""
+        if self._turbovec is None:
+            raise RuntimeError("Index not built yet. Call build() first.")
+        return self._turbovec.search(query_vectors, k=k)
+
+    # ── Build ──────────────────────────────────────────────────────────────
+
+    def build(self, documents: list[ProcessedDoc]) -> None:
+        """Embed documents and build the search index.
+
+        Creates embeddings via gte-modernbert-base, then builds a
+        TurboQuantIndex. After this call the instance is usable as a
+        :class:`RagRetriever` index.
+        """
+        if not documents:
+            self._turbovec = None
+            return
+
+        from sentence_transformers import SentenceTransformer
+        from turbovec import TurboQuantIndex
+
+        model = SentenceTransformer("Alibaba-NLP/gte-modernbert-base", device="cpu")
+
+        texts = [f"{d.title}\n{d.content}" for d in documents]
+        vectors = np.array(model.encode(texts, show_progress_bar=False)).astype(np.float32)
+
+        idx = TurboQuantIndex(dim=self._dim, bit_width=self._bit_width)
+        idx.add(vectors)
+        self._turbovec = idx
+
+    # ── Persistence ────────────────────────────────────────────────────────
+
+    def save(self, path: str) -> None:
+        """Persist the turbovec index to disk using native binary format."""
+        if self._turbovec is None:
+            raise RuntimeError("Nothing to save — build() first.")
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        self._turbovec.write(str(p))
+
+    @classmethod
+    def load(cls, path: str, *, documents: list[RagDocument]) -> RagIndex:
+        """Load a persisted turbovec index from disk.
+
+        Args:
+            path: Path to the binary file written by ``save()``.
+            documents: The document list that was indexed (not stored in the file).
+        """
+        from turbovec import TurboQuantIndex
+
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"Index file not found: {path}")
+
+        turbovec = TurboQuantIndex.load(str(p))
+        index = cls(dim=turbovec.dim, bit_width=turbovec.bit_width)
+        index._turbovec = turbovec
+        return index
+
