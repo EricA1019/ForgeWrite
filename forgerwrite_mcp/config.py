@@ -47,7 +47,7 @@ class LocalModelConfig(BaseModel):
     temperature: Annotated[float, Field(ge=0.0, le=2.0)] = 0.20
     top_p: Annotated[float, Field(gt=0.0, le=1.0)] = 0.90
     top_k: Annotated[int, Field(ge=1)] = 20
-    max_tokens: Annotated[int, Field(ge=128, le=16384)] = 2048
+    max_tokens: Annotated[int, Field(ge=128, le=16384)] = 4096
     json_retries: Annotated[int, Field(ge=0, le=5)] = 2
     request_timeout_seconds: Annotated[float, Field(ge=5.0, le=3600.0)] = 180.0
     retry_base_delay_seconds: Annotated[float, Field(gt=0.0, le=60.0)] = 0.5
@@ -100,6 +100,16 @@ class RepairConfig(BaseModel):
     scope_must_match_original_slice: bool = True
 
 
+class RagConfig(BaseModel):
+    """RAG (Retrieval-Augmented Generation) configuration."""
+
+    enabled: bool = False
+    index_path: str = "data/rag/index.tqi"
+    k_documents: Annotated[int, Field(ge=1, le=20)] = 5
+    embedding_model_name: str = "Alibaba-NLP/gte-modernbert-base"
+    max_rag_tokens: Annotated[int, Field(ge=64, le=16384)] = 2048
+
+
 # ── Root config model ───────────────────────────────────────────────────────
 
 
@@ -113,6 +123,7 @@ class ForgerWriteConfig(BaseModel):
     hygiene: HygieneConfig
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     repair: RepairConfig = Field(default_factory=RepairConfig)
+    rag: RagConfig = Field(default_factory=RagConfig)
 
 
 # ── Loader ──────────────────────────────────────────────────────────────────

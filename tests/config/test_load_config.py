@@ -112,6 +112,56 @@ class TestLoadConfig:
         assert hasattr(cfg, "retry_multiplier")
         assert cfg.retry_base_delay_seconds > 0
 
+    def test_rag_section_defaults(self) -> None:
+        """RagConfig has sane defaults: disabled, k=5, max_rag_tokens=2048."""
+        from forgerwrite_mcp.config import RagConfig
+
+        cfg = RagConfig()
+        assert cfg.enabled is False
+        assert cfg.k_documents == 5
+        assert cfg.max_rag_tokens == 2048
+        assert "gte-modernbert-base" in cfg.embedding_model_name
+
+    def test_rag_section_in_root_config(self) -> None:
+        """ForgerWriteConfig includes rag section by default."""
+        from forgerwrite_mcp.config import ForgerWriteConfig
+
+        cfg = ForgerWriteConfig(
+            project={"name": "test", "language": "rust", "repo_root": "."},
+            local_model={},
+            validation={"commands": {}, "profiles": {}},
+            permissions={},
+            hygiene={},
+        )
+        assert cfg.rag is not None
+        assert cfg.rag.enabled is False
+
+    def test_rag_enabled_when_configured(self) -> None:
+        """ForgerWriteConfig can have RAG enabled."""
+        from forgerwrite_mcp.config import ForgerWriteConfig
+
+        cfg = ForgerWriteConfig(
+            project={"name": "test", "language": "rust", "repo_root": "."},
+            local_model={},
+            validation={"commands": {}, "profiles": {}},
+            permissions={},
+            hygiene={},
+            rag={"enabled": True, "k_documents": 3},
+        )
+        assert cfg.rag.enabled is True
+        assert cfg.rag.k_documents == 3
+
+    def test_rag_k_documents_bounded(self) -> None:
+        """RagConfig.k_documents must be between 1 and 20."""
+        import pydantic
+
+        from forgerwrite_mcp.config import RagConfig
+
+        with pytest.raises(pydantic.ValidationError):
+            RagConfig(k_documents=0)
+        with pytest.raises(pydantic.ValidationError):
+            RagConfig(k_documents=21)
+
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

@@ -63,3 +63,9 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.pyright]
+reportArgumentType = false
+# Pydantic v2 constructors accept dicts for sub-model fields at runtime.
+# pyright's static analysis doesn't understand Pydantic's coercion, so
+# we disable argument-type checking project-wide.

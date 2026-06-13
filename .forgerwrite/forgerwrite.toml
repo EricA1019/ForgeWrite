@@ -53,3 +53,10 @@ vendor_globs = ["vendor/**"]
 [repair]
 max_attempts = 2
 scope_must_match_original_slice = true
+
+[rag]
+enabled = true
+index_path = "data/rag/index.tqi"
+k_documents = 5
+embedding_model_name = "Alibaba-NLP/gte-modernbert-base"
+max_rag_tokens = 2048
