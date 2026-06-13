@@ -2,7 +2,7 @@
 
 **Local-first MCP coding service with hard safety rails.**
 
-ForgerWrite delegates narrow, well-scoped file edits to a local coding model (llama.cpp + Gemma 4 12B) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree. Includes RAG (Retrieval-Augmented Generation) with semantic search over a curated Rust knowledge base to improve model output quality.
+ForgerWrite delegates narrow, well-scoped file edits to a local coding model (llama.cpp + OmniCoder 9B) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree. Includes RAG (Retrieval-Augmented Generation) with semantic search over a curated Rust knowledge base to improve model output quality.
 
 ---
 
@@ -17,7 +17,7 @@ uv sync
 # 2. Scaffold your project
 uv run forgerwrite init
 
-# 3. Edit .forgerwrite/forgerwrite.toml with your llama.cpp endpoint
+# 3. Edit .forgerwrite/forgerwrite.toml with your model endpoint (OmniCoder 9B default, see docs/llama-cpp-setup.md for Gemma 4 or other models)
 
 # 4. Build the RAG search index (optional, improves model quality)
 uv run forgerwrite build-index

@@ -180,9 +180,10 @@ Phase 5 (Acceptance) requires:
 | Ruff clean | ✅ |
 | 0 stubs remaining | ✅ |
 | MCP server boots | ✅ |
-| CLI has all 12 commands | ✅ |
+| CLI has all 13 commands | ✅ |
 | `--json` flag on all commands | ✅ |
 | `abort` command exists | ✅ |
+| `build-index` command exists | ✅
 | `approve` is interactive | ✅ |
 
 ---

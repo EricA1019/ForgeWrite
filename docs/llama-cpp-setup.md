@@ -1,34 +1,54 @@
 # Llama.cpp Setup for ForgerWrite MCP
 
-ForgerWrite is tested with **Gemma 4 12B QAT** (Q4_K_XL GGUF) on an NVIDIA RTX 3060. A `launch-gemma4.sh` script is provided in `scripts/` for the exact build + launch.
+ForgerWrite uses a local llama.cpp server. The default model is **OmniCoder 9B** (Q8_0). A **Gemma 4 12B QAT** configuration is also available and will be tested further at MVP.
 
 ---
 
-## 1. Quick Launch (RTX 3060)
+## 1. Install llama.cpp
 
 ```bash
-bash scripts/launch-gemma4.sh
+git clone https://github.com/ggerganov/llama.cpp.git
+cd llama.cpp
+mkdir build && cd build
+cmake .. -DLLAMA_CUDA=ON -DLLAMA_CUDA_F16=ON  # CPU-only: -DLLAMA_CUDA=OFF
+cmake --build . --config Release -j$(nproc)
 ```
 
-This builds llama.cpp with CUDA and launches the server with the correct flags.
+---
+
+## 2. OmniCoder 9B (Default)
+
+```bash
+# Download
+huggingface-cli download \
+    nisten/omnicoder-9b-q8_0-GGUF \
+    omnicoder-9b-q8_0.gguf \
+    --local-dir ./models/
+
+# Launch (CPU or partial GPU)
+./build/bin/llama-server \
+    --model ./models/omnicoder-9b-q8_0.gguf \
+    --host 127.0.0.1 \
+    --port 8080 \
+    --ctx-size 8192 \
+    --batch-size 512 \
+    --threads $(nproc) \
+    --gpu-layers 0
+```
+
+For GPU offload (NVIDIA), add `--gpu-layers 35 --no-mmap`.
 
 ---
 
-## 2. Manual Launch
+## 3. Gemma 4 12B QAT (Experimental — MVP Testing)
 
 ```bash
-# Build llama.cpp with CUDA support
-cd /path/to/llama.cpp
-mkdir build && cd build
-cmake .. -DLLAMA_CUDA=ON -DLLAMA_CUDA_F16=ON
-cmake --build . --config Release -j$(nproc)
+# Download
+export MODEL_PATH=/path/to/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
 
-# Download Gemma 4 12B QAT
-export MODEL=/home/eric/models/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
-
-# Launch server (CUDA, 32K context, flash attention)
+# Launch (CUDA, 32K context, flash attention)
 ./build/bin/llama-server \
-    --model "$MODEL" \
+    --model "$MODEL_PATH" \
     --host 127.0.0.1 \
     --port 8080 \
     --ctx-size 32768 \
@@ -39,29 +59,26 @@ export MODEL=/home/eric/models/gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
     --no-mmap
 ```
 
+A launch script for RTX 3060 is at `scripts/launch-gemma4.sh`.
+
 ---
 
-## 3. Verify the Server
+## 4. Verify & Smoke Test
 
 ```bash
 curl http://127.0.0.1:8080/health
 # → {"status": "ok"}
-```
 
----
-
-## 4. Smoke Test
-
-```bash
+# Smoke test with your model
 curl http://127.0.0.1:8080/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{
-        "model": "gemma-4-12B-it-qat-UD-Q4_K_XL",
+        "model": "<your-model-name>",
         "messages": [
-            {"role": "user", "content": "Fix the import in this file: use calc_lib::add;"}
+            {"role": "user", "content": "{\"test\": \"hello\"}"}
         ],
-        "temperature": 1.0,
-        "max_tokens": 4096,
+        "temperature": 0.2,
+        "max_tokens": 256,
         "response_format": {"type": "json_object"}
     }'
 ```
@@ -70,25 +87,22 @@ curl http://127.0.0.1:8080/v1/chat/completions \
 
 ## 5. Configure ForgerWrite
 
-Set the endpoint in `.forgerwrite/forgerwrite.toml`:
+Set the endpoint in `.forgerwrite/forgerwrite.toml`. Default config is for OmniCoder:
 
 ```toml
 [local_model]
 provider = "llama_cpp"
 endpoint = "http://127.0.0.1:8080/v1"
-model = "gemma-4-12B-it-qat-UD-Q4_K_XL"
-temperature = 1.0
-top_p = 0.95
-top_k = 64
-max_tokens = 4096
+model = "omnicoder-9b"
+temperature = 0.20
+top_p = 0.90
+top_k = 20
+max_tokens = 2048
 ```
 
-Run `forgerwrite doctor` to confirm the connection:
+For Gemma 4, update to temperature=1.0, top_p=0.95, top_k=64, max_tokens=4096.
 
-```bash
-uv run forgerwrite doctor
-# → {"ok": true, "checks": {"config_exists": true, "llama_cpp_reachable": true, ...}}
-```
+Run `uv run forgerwrite doctor` to confirm the connection.
 
 ---
 
@@ -98,6 +112,7 @@ uv run forgerwrite doctor
 |-----------|---------|-------------|
 | llama.cpp | latest `master` | latest `master` |
 | OmniCoder 9B | Q8_0 quantization | Q8_0 |
+| Gemma 4 12B QAT | Q4_K_XL, CUDA GPU 12GB+ | Q4_K_XL, RTX 3060+ |
 | RAM | 12 GB | 16 GB |
 | VRAM (GPU) | 8 GB | 12 GB |
 | Context size | 4096 | 8192 |
