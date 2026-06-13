@@ -87,6 +87,13 @@ vendor_globs = ["vendor/**"]
 [repair]
 max_attempts = 2
 scope_must_match_original_slice = true
+
+[rag]
+enabled = false
+index_path = "data/rag/index.tqi"
+k_documents = 5
+embedding_model_name = "Alibaba-NLP/gte-modernbert-base"
+max_rag_tokens = 2048
 """
 
 
@@ -387,6 +394,40 @@ def project_status(
             "repair_max_attempts": config.repair.max_attempts,
         }
         _json_out(summary, json_flag)
+    except Exception as exc:
+        _json_out({"ok": False, "error": str(exc)}, json_flag)
+
+
+@app.command()
+def build_index(
+    kb_dir: str = typer.Option("data/rag", "--kb-dir", help="Knowledge base directory."),
+    index_path: str = typer.Option(
+        "data/rag/index.tqi", "--index-path", help="Output index path."
+    ),
+    json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Build (or rebuild) the RAG search index from knowledge base files.
+
+    Processes curated KB + external docs (rust-cookbook, rust-by-example),
+    embeds them with gte-modernbert-base, and writes a TurboQuantIndex.
+    """
+    root = _get_root()
+    try:
+        from .rag import build_rag_index
+
+        index = build_rag_index(
+            kb_dir=str(root / kb_dir),
+            index_path=str(root / index_path),
+        )
+        _json_out(
+            {
+                "ok": True,
+                "index_path": str(root / index_path),
+                "dim": index.dim,
+                "bit_width": index.bit_width,
+            },
+            json_flag,
+        )
     except Exception as exc:
         _json_out({"ok": False, "error": str(exc)}, json_flag)
 

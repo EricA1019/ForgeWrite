@@ -93,10 +93,12 @@ def boot() -> None:
 
     @mcp.tool()
     async def fw_generate_operations_local(handoff: dict, slice_contract: dict) -> dict:
-        """Generate operations using the local model."""
+        """Generate operations using the local model (with optional RAG enrichment)."""
         try:
             from .config import load_config
+            from .context import build_context_packet
             from .llama_client import LlamaCppClient
+            from .rag import build_rag_enricher
 
             config = load_config(Path.cwd())
             client = LlamaCppClient.from_config(config.local_model)
@@ -105,12 +107,38 @@ def boot() -> None:
             schema = json.loads(
                 (Path(__file__).parent.parent / "schemas" / "operation_batch.v1.json").read_text()
             )
+
+            # Build context packet for file contents
+            context = build_context_packet(
+                Path.cwd(), handoff, slice_contract, config.limits, hygiene=config.hygiene
+            )
+
+            user_prompt = json.dumps({
+                "task": handoff.get("description", ""),
+                "slice": slice_contract,
+                "files": context.get("files", {}),
+            })
+
+            # Enrich with RAG if available
+            enricher = build_rag_enricher(config, project_root=Path.cwd())
+            if enricher is not None:
+                query = handoff.get("description", "") + " " + json.dumps(slice_contract)
+                user_prompt = enricher.enrich(
+                    base_prompt=user_prompt,
+                    query=query,
+                    k=config.rag.k_documents,
+                )
+
+            system_prompt = (
+                "You are a coding assistant that produces structured JSON operation batches.\n\n"
+                "Respond ONLY with a JSON object matching the operation_batch schema."
+            )
             raw = await client.generate_operation_batch(
-                system_prompt="You are a coding assistant.",
-                user_prompt=json.dumps({"handoff": handoff, "slice": slice_contract}),
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 schema=schema,
             )
-            return {"ok": True, "batch": json.loads(raw)}
+            return {"ok": True, "batch": json.loads(raw), "rag_enriched": enricher is not None}
         except Exception as exc:
             return envelope_from(exc, "generate").to_dict()
 
