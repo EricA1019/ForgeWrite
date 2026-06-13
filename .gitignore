@@ -33,3 +33,5 @@ htmlcov/
 .forgerwrite/forgerwrite.db
 .forgerwrite/secrets.json
 _output/
+data/rag/rust-by-example/
+data/rag/rust-cookbook/
