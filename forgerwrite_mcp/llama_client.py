@@ -46,6 +46,7 @@ class LlamaCppClient:
         endpoint: str,
         model: str,
         timeout: float,
+        max_tokens: int = 4096,
         json_retries: int = 2,
         retry_base_delay: float = 0.5,
         retry_max_delay: float = 8.0,
@@ -56,6 +57,7 @@ class LlamaCppClient:
         self._endpoint: str = endpoint.rstrip("/")
         self._model: str = model
         self._timeout: float = timeout
+        self._max_tokens: int = max_tokens
         self._json_retries: int = json_retries
         self._retry_base_delay: float = retry_base_delay
         self._retry_max_delay: float = retry_max_delay
@@ -77,6 +79,7 @@ class LlamaCppClient:
             endpoint=config.endpoint,
             model=config.model,
             timeout=config.request_timeout_seconds,
+            max_tokens=config.max_tokens,
             json_retries=config.json_retries,
             retry_base_delay=config.retry_base_delay_seconds,
             retry_max_delay=config.retry_max_delay_seconds,
@@ -87,9 +90,16 @@ class LlamaCppClient:
         self,
         system_prompt: str,
         user_prompt: str,
-        schema: dict[str, Any],
+        schema: dict[str, Any] | None = None,
     ) -> str:
         """Call llama.cpp and return a JSON operation batch string.
+
+        Uses ``response_format: json_object`` to constrain the model to
+        produce valid JSON, while relying on structured prompting (system
+        prompt + RAG-enriched user prompt) for schema adherence. The
+        ``schema`` parameter is accepted for API compatibility but not
+        sent to the model — structural validation happens downstream via
+        :class:`ContractRegistry`.
 
         Retries on invalid JSON up to json_retries times.
         Raises PublicError(LOCAL_MODEL_ERROR) on failure.
@@ -116,14 +126,8 @@ class LlamaCppClient:
             "temperature": _GENERATION_TEMPERATURE,
             "top_p": _GENERATION_TOP_P,
             "top_k": _GENERATION_TOP_K,
-            "max_tokens": _GENERATION_MAX_TOKENS,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "operation_batch",
-                    "schema": schema,
-                },
-            },
+            "max_tokens": self._max_tokens,
+            "response_format": {"type": "json_object"},
         }
 
         last_error: str = ""

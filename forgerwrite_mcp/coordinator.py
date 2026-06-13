@@ -74,12 +74,14 @@ class SliceCoordinator:
         registry: OperationRegistry,
         backend: LocalModelBackend,
         auto_approve: bool = False,
+        enricher: object | None = None,
     ) -> None:
         self._repo_root = repo_root.resolve()
         self._config = config
         self._registry = registry
         self._backend = backend
         self._auto_approve = auto_approve
+        self._enricher = enricher
         self._contract_registry = ContractRegistry(Path(__file__).parent.parent / "schemas")
 
         # Per-run state
@@ -104,9 +106,22 @@ class SliceCoordinator:
         try:
             status = self._validate_contracts(handoff, slice_contract)
             status = self._build_context(handoff, slice_contract)
-            status = asyncio.run(self._generate_operations(handoff, slice_contract))
-            status = self._validate_schema()
-            status = self._validate_semantic(slice_contract)
+            # Generate + schema-validate with retry on schema/semantic errors
+            status = asyncio.run(
+                self._generate_with_schema_repair(handoff, slice_contract)
+            )
+            if status != _STATUS_OPS_SEMANTIC_VALID:
+                # Schema/semantic repair exhausted — record and exit
+                write_dead_letter(
+                    self._run_dir,
+                    f"Schema repair exhausted at status {status}",
+                )
+                return RunOutcome(
+                    run_id=self._run_id,
+                    status=status,
+                    run_dir=self._run_dir,
+                    errors=[f"Schema/semantic validation failed after repair: {status}"],
+                )
             status = self._preview(slice_contract)
             status = self._await_approval()
             if status == _STATUS_APPROVED:
@@ -185,6 +200,27 @@ class SliceCoordinator:
             "slice": slice_contract,
             "files": self._context_packet.get("files", {}),
         })
+
+        # Enrich with RAG if available
+        if self._enricher is not None:
+            query = handoff.get("description", "") + " " + json.dumps(slice_contract)
+            user_prompt = self._enricher.enrich(
+                base_prompt=user_prompt,
+                query=query,
+                k=self._config.rag.k_documents,
+            )
+
+        # If this is a schema repair retry, prepend the error
+        if hasattr(self, "_schema_repair_error") and self._schema_repair_error:
+            user_prompt = (
+                f"PREVIOUS ATTEMPT FAILED SCHEMA VALIDATION:\n"
+                f"{self._schema_repair_error}\n\n"
+                f"Please fix the validation error and produce a corrected JSON "
+                f"operation batch with ALL required fields.\n\n"
+                f"{user_prompt}"
+            )
+            self._schema_repair_error = None  # consumed
+
         self._operation_batch_schema = json.loads(
             (Path(__file__).parent.parent / "schemas" / "operation_batch.v1.json").read_text()
         )
@@ -196,19 +232,82 @@ class SliceCoordinator:
         write_artifact(self._run_dir, "operation_batch.json", self._operation_batch)
         return _STATUS_LOCAL_GENERATED
 
+    async def _generate_with_schema_repair(
+        self, handoff: dict, slice_contract: dict
+    ) -> str:
+        """Generate operations with up to N retries on schema/semantic errors.
+
+        Feeds schema validation errors back to the model as repair prompts.
+        Uses the same repair budget as code validation (repair.max_attempts).
+        """
+        max_attempts = max(1, self._config.repair.max_attempts)
+
+        for attempt in range(max_attempts + 1):
+            # Generate
+            status = await self._generate_operations(handoff, slice_contract)
+            if status != _STATUS_LOCAL_GENERATED:
+                return status
+
+            # Schema validate
+            status = self._validate_schema()
+            if status != _STATUS_OPS_SCHEMA_VALID:
+                if attempt < max_attempts:
+                    schema_error = self._last_schema_error or "Unknown schema error"
+                    self._repair_prompt_from_schema_error(schema_error, attempt + 1)
+                    continue
+                return status
+
+            # Semantic validate
+            status = self._validate_semantic(slice_contract)
+            if status != _STATUS_OPS_SEMANTIC_VALID:
+                if attempt < max_attempts:
+                    semantic_error = self._last_semantic_error or "Unknown semantic error"
+                    self._repair_prompt_from_schema_error(semantic_error, attempt + 1)
+                    continue
+                return status
+
+            return _STATUS_OPS_SEMANTIC_VALID
+
+        return status
+
+    def _repair_prompt_from_schema_error(self, error: str, attempt: int) -> None:
+        """Store schema error for next generation attempt."""
+        import json
+
+        # Store the error so the next generate_operations call can include it
+        self._schema_repair_error = error
+        self._schema_repair_attempt = attempt
+        write_artifact(
+            self._run_dir,
+            f"schema_repair_error_{attempt}.txt",
+            {"error": error},
+        )
+
     def _validate_schema(self) -> str:
-        self._contract_registry.validate("operation_batch.v1.json", self._operation_batch)
-        return _STATUS_OPS_SCHEMA_VALID
+        try:
+            self._contract_registry.validate(
+                "operation_batch.v1.json", self._operation_batch
+            )
+            self._last_schema_error = None
+            return _STATUS_OPS_SCHEMA_VALID
+        except Exception as exc:
+            self._last_schema_error = str(exc)
+            return _STATUS_LOCAL_GENERATED  # stay in previous state
 
     def _validate_semantic(self, slice_contract: dict) -> str:
-        validator = default_validator()
-        validator.validate(
-            self._operation_batch,
-            slice_contract,
-            limits=self._config.limits,
-            permissions=self._config.permissions,
-        )
-        return _STATUS_OPS_SEMANTIC_VALID
+        try:
+            validator = default_validator()
+            validator.validate(
+                self._operation_batch,
+                slice_contract,
+                limits=self._config.limits,
+                permissions=self._config.permissions,
+            )
+            self._last_semantic_error = None
+            return _STATUS_OPS_SEMANTIC_VALID
+        except Exception as exc:
+            self._last_semantic_error = str(exc)
+            return _STATUS_OPS_SCHEMA_VALID  # stay in previous state
 
     def _preview(self, slice_contract: dict) -> str:
         # DRY: delegate to forge.preview_operations() which stages new files
@@ -296,6 +395,18 @@ class SliceCoordinator:
 
             prompt, _remaining = result
             attempt_n = repair.attempt_count
+
+            # Enrich repair prompt with RAG if available
+            if self._enricher is not None and self._operation_batch is not None:
+                # Build a repair-specific query from validation errors
+                repair_query = json.dumps(validation_result) + " " + json.dumps(
+                    self._operation_batch
+                )
+                prompt = self._enricher.enrich(
+                    base_prompt=prompt,
+                    query=repair_query,
+                    k=self._config.rag.k_documents,
+                )
 
             # Write repair prompt artifact
             write_artifact(
