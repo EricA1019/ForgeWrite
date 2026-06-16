@@ -60,7 +60,7 @@ def build_rag_enricher(
     if not index_path.exists():
         return None
 
-    from sentence_transformers import SentenceTransformer
+from .index import _get_embedding_model
 
     kb_path = root / "data" / "rag" / "rust-knowledge-base.md"
     if kb_path.exists():
@@ -80,7 +80,7 @@ def build_rag_enricher(
     ]
 
     index = RagIndex.load(str(index_path), documents=rag_docs)
-    model = SentenceTransformer(config.rag.embedding_model_name, device="cpu")
+    model = _get_embedding_model(config.rag.embedding_model_name)
     retriever = RagRetriever(index=index, model=model, documents=rag_docs)
 
     return RagPromptEnricher(

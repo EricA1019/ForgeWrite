@@ -73,7 +73,7 @@ def _get_embedding_model(model_name: str = "Alibaba-NLP/gte-modernbert-base", de
         from sentence_transformers import SentenceTransformer
         from turbovec import TurboQuantIndex
 
-        model = SentenceTransformer("Alibaba-NLP/gte-modernbert-base", device="cpu")
+    model = _get_embedding_model()
 
         # Truncate long documents to avoid CPU overload during embedding.
         # gte-modernbert-base has 8192 token context; we cap content at 2000
