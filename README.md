@@ -4,7 +4,7 @@
 
 ForgeWrite delegates narrow, well-scoped file edits to a local LLM (Gemma 4 12B via llama.cpp) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree.
 
-**315 tests. 15 MCP tools. Rust + Python. RAG + Scout + Knowledge Base.**
+**354 tests. 22 MCP tools. Rust + Python. RAG + Scout + Knowledge Base.**
 
 ---
 
@@ -77,7 +77,7 @@ forgerwrite_mcp/
 ├── local_model.py        LocalModelBackend Protocol
 ├── paths.py              safe_resolve_path (DRY path safety)
 ├── repair.py             RepairCoordinator — bounded budget
-├── server.py             FastMCP server — 10 thin tools
+├── server.py             FastMCP server — 22 MCP tools
 ├── summary.py            Markdown run summary generator
 ├── contracts/            JSON Schema loading + validation
 ├── forge/                Git snapshot + diff utilities
@@ -87,11 +87,12 @@ forgerwrite_mcp/
 
 ---
 
-## MCP Tools (15)
+## MCP Tools (22)
 
 | Tool | Description |
 |------|-------------|
 | `fw_ping` | Health check |
+| `fw_model_health` | Model server health check |
 | `fw_validate_handoff` | Validate handoff contract against schema |
 | `fw_validate_slice` | Validate slice contract against schema |
 | `fw_build_context_packet` | Build bounded context from allowed files |
@@ -111,6 +112,7 @@ forgerwrite_mcp/
 | `fw_knowledge_promote_from_run` | Promote a run to knowledge entry |
 | `fw_knowledge_record_usage` | Record usage outcome |
 | `fw_knowledge_deprecate_entry` | Mark entry as deprecated |
+| `fw_token_stats` | Token usage and cloud savings |
 
 ## CLI Commands (13)
 
@@ -212,13 +214,23 @@ See [docs/llama-cpp-setup.md](docs/llama-cpp-setup.md) for step-by-step instruct
 
 ```bash
 uv sync --group dev
-uv run pytest -q           # 180+ tests
+uv run pytest -q           # 354 tests
 uv run ruff check .        # Lint
 uv run mypy forgerwrite_mcp/  # Type check
 ```
 
 ---
 
+## Documentation
+
+- **[CLI Reference](docs/cli-reference.md)** — all 12 CLI commands with syntax and examples
+- **[Troubleshooting](docs/troubleshooting.md)** — common issues and fixes
+- **[Configuration](docs/configuration.md)** — full config reference
+- **[Operations](docs/operations.md)** — JSON schema for file operations
+- **[CHANGELOG](CHANGELOG.md)** — release history
+
+---
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for full text.

@@ -12,6 +12,8 @@ All documentation for the ForgeWrite MCP coding service.
 | [docs/configuration.md](configuration.md) | Configuration reference (all 7 sections) |
 | [docs/llama-cpp-setup.md](llama-cpp-setup.md) | Llama.cpp model server setup guide |
 | [docs/operations.md](operations.md) | File operation handlers reference |
+| [docs/cli-reference.md](cli-reference.md) | All 12 CLI commands with syntax and examples |
+| [docs/troubleshooting.md](troubleshooting.md) | Common issues and fixes |
 
 ## Development
 
