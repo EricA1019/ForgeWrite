@@ -15,6 +15,9 @@ All documentation for the ForgeWrite MCP coding service.
 | [docs/cli-reference.md](cli-reference.md) | All 12 CLI commands with syntax and examples |
 | [docs/troubleshooting.md](troubleshooting.md) | Common issues and fixes |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor setup and workflow guide |
+| [docs/knowledge-base.md](knowledge-base.md) | Knowledge Base user guide — 6 KB MCP tools and promotion workflow |
+| [docs/adapters.md](adapters.md) | Language adapter reference — Rust and Python validation defaults |
+
 
 ## Development
 
