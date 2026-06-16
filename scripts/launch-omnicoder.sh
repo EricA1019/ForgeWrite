@@ -1,24 +1,30 @@
-#!/bin/bash
-# Launch OmniCoder 9B Q8_0 on GPU (RTX 3060, CUDA 12)
-# Usage: ./launch-omnicoder.sh
+#!/usr/bin/env bash
+# Launch OmniCoder 9B (Q8) via llama.cpp for ForgeWrite.
+# Alternative to Gemma 4 for systems with less VRAM.
+#
+# Usage: bash scripts/launch-omnicoder.sh
+# The server starts at http://localhost:8080 by default.
 
 set -euo pipefail
 
-BIN_DIR="/home/eric/servers/llama.cpp-cuda-b8680-sm86/bin"
-MODEL="/home/eric/models/OmniCoder-9B-Claude-Opus-High-Reasoning-Distill.Q8_0.gguf"
+MODEL="omnicoder-9b-q8.gguf"
+CTX_SIZE=4096
+NGPU=28
+PORT=8080
 
-# Collect CUDA 12 libraries from nvidia pip packages
-CUDA_LIBS=$(find /home/eric/miniconda3/lib/python3.12/site-packages/nvidia \
-    -name "lib" -type d 2>/dev/null | tr '\n' ':')
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MODEL_PATH="${HOME}/models/${MODEL}"
 
-export LD_LIBRARY_PATH="${BIN_DIR}:${CUDA_LIBS}"
+if [ ! -f "$MODEL_PATH" ]; then
+    echo "Error: Model not found at ${MODEL_PATH}"
+    echo "Available models: omnicoder-9b, gemma-4-12b"
+    exit 1
+fi
 
-exec "${BIN_DIR}/llama-server" \
-    --model "${MODEL}" \
-    --host 127.0.0.1 \
-    --port 8080 \
-    --ctx-size 8192 \
-    --batch-size 512 \
-    --n-gpu-layers 35 \
-    --threads 8 \
-    --no-mmap
+exec llama-server \
+    --model "${MODEL_PATH}" \
+    --ctx-size ${CTX_SIZE} \
+    --ngl ${NGPU} \
+    --port ${PORT} \
+    --host 0.0.0.0 \
+    "$@"
