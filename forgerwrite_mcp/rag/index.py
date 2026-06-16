@@ -53,6 +53,22 @@ class RagIndex:
         if not documents:
             self._turbovec = None
             return
+# Module-level SentenceTransformer cache — model load is expensive (~130MB, 5-10s)
+# on first call. Subsequent calls reuse the cached instance.
+_EMBEDDING_MODEL_CACHE: dict[str, object] = {}
+
+
+def _get_embedding_model(model_name: str = "Alibaba-NLP/gte-modernbert-base", device: str = "cpu") -> object:
+    """Get or create a cached SentenceTransformer instance."""
+    key = f"{model_name}:{device}"
+    if key not in _EMBEDDING_MODEL_CACHE:
+        from sentence_transformers import SentenceTransformer
+
+        _EMBEDDING_MODEL_CACHE[key] = SentenceTransformer(model_name, device=device)
+    return _EMBEDDING_MODEL_CACHE[key]
+
+
+
 
         from sentence_transformers import SentenceTransformer
         from turbovec import TurboQuantIndex
