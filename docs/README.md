@@ -14,6 +14,7 @@ All documentation for the ForgeWrite MCP coding service.
 | [docs/operations.md](operations.md) | File operation handlers reference |
 | [docs/cli-reference.md](cli-reference.md) | All 12 CLI commands with syntax and examples |
 | [docs/troubleshooting.md](troubleshooting.md) | Common issues and fixes |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contributor setup and workflow guide |
 
 ## Development
 
