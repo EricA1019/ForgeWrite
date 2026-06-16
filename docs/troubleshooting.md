@@ -48,6 +48,21 @@ Common issues when using ForgeWrite, with symptoms, causes, and fixes.
 
 ---
 
+
+### Index build hangs or times out
+
+**Symptom:** `fw_turbovec_index` appears to do nothing and eventually times out.
+
+**Cause:** Building the TurboVec index loads the SentenceTransformer model and computes embeddings for all KB documents. This is a CPU-bound operation that takes 5-30 seconds on first run and blocks the MCP response.
+
+**Fix:** Run index building from the CLI instead, where blocking is acceptable:
+
+```bash
+forgerwrite build-index
+```
+
+**Note:** After the first call, the SentenceTransformer model is cached in memory. Subsequent `fw_turbovec_index` calls (or CLI calls) within the same process lifetime will be faster (only the embedding computation, not the model load).
+
 ### Some MCP tools are missing from the list
 
 **Symptom:** `fw_model_health` or `fw_turbovec_index` not available.
