@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import UTC
 from pathlib import Path
 
 from .errors import envelope_from
@@ -98,11 +99,18 @@ async def fw_scout(
     question: str,
     allowed_files: list[str] | None = None,
     use_model_planner: bool = False,
+    max_results: int = 20,
 ) -> dict:
     """Run the Scout evidence pipeline and return an evidence packet.
 
     Scout searches for relevant code patterns via ripgrep and RAG retrieval,
     producing path:line evidence for the requested question.
+
+    Args:
+        question: Natural-language question to find evidence for.
+        allowed_files: Optional list of file paths to scope the search.
+        use_model_planner: If True, use the local LLM to plan grep queries.
+        max_results: Maximum exact evidence lines to return (default 20).
     """
     try:
         from .config import load_config
@@ -116,6 +124,7 @@ async def fw_scout(
             repo_root=Path.cwd(),
             enricher=enricher,
             use_model_planner=use_model_planner,
+            max_evidence_lines=max_results,
         )
         packet = scout.scout(
             question=question,
@@ -129,11 +138,17 @@ async def fw_scout(
 async def fw_scout_grep(
     queries: list[str],
     allowed_files: list[str] | None = None,
+    max_results: int = 20,
 ) -> dict:
     """Bounded grep through ForgeWrite path policy.
 
     Runs ripgrep with safety constraints — no files outside the repo,
     capped matches, and timeout.
+
+    Args:
+        queries: List of grep patterns to search for.
+        allowed_files: Optional list of file paths to scope the search.
+        max_results: Maximum matches to return (default 20).
     """
     try:
         from .scout.safe_grep import safe_grep
@@ -146,6 +161,7 @@ async def fw_scout_grep(
         result = safe_grep(
             repo_root=Path.cwd(),
             queries=search_queries,
+            max_total_matches=max_results,
         )
         return {
             "ok": True,
@@ -259,7 +275,7 @@ async def fw_knowledge_record_usage(entry_id: str, outcome: str, notes: str = ""
         notes: Optional notes about the outcome.
     """
     try:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from .contracts.registry import ContractRegistry
         from .knowledge.store import KnowledgeStore
@@ -267,7 +283,7 @@ async def fw_knowledge_record_usage(entry_id: str, outcome: str, notes: str = ""
         usage = {
             "schema_id": "forgewrite.knowledge_usage.v1",
             "entry_id": entry_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "outcome": outcome,
             "notes": notes,
         }
@@ -334,7 +350,7 @@ async def fw_model_health() -> dict:
     try:
         from .config import load_config
         from .llama_client import LlamaCppClient
-        from .model_state import load_last_model, save_model_state
+        from .model_state import save_model_state
 
         config = load_config(Path.cwd())
         client = LlamaCppClient.from_config(config.local_model)
