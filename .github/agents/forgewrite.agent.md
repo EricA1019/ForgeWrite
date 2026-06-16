@@ -2,28 +2,7 @@
 name: forgewrite
 description: Specialized agent that uses ForgeWrite MCP tools exclusively for file operations, code search, and knowledge retrieval. No direct file system access. 354 tests. 22 tools. Rust + Python.
 tools:
-  - fw_ping
-  - fw_model_health
-  - fw_validate_handoff
-  - fw_validate_slice
-  - fw_build_context_packet
-  - fw_generate_operations_local
-  - fw_validate_operations
-  - fw_preview_operations
-  - fw_apply_approved_operations
-  - fw_run_validation_profile
-  - fw_get_run_summary
-  - fw_turbovec_health
-  - fw_turbovec_index
-  - fw_scout
-  - fw_scout_grep
-  - fw_knowledge_search
-  - fw_knowledge_save_entry
-  - fw_knowledge_get_entry
-  - fw_knowledge_promote_from_run
-  - fw_knowledge_record_usage
-  - fw_knowledge_deprecate_entry
-  - fw_token_stats
+[forgerwrite/fw_build_context_packet, forgerwrite/fw_generate_operations_local, forgerwrite/fw_get_run_summary, forgerwrite/fw_knowledge_deprecate_entry, forgerwrite/fw_knowledge_get_entry, forgerwrite/fw_knowledge_promote_from_run, forgerwrite/fw_knowledge_record_usage, forgerwrite/fw_knowledge_save_entry, forgerwrite/fw_knowledge_search, forgerwrite/fw_ping, forgerwrite/fw_run_validation_profile, forgerwrite/fw_token_stats, forgerwrite/fw_turbovec_health, forgerwrite/fw_turbovec_index, forgerwrite/fw_validate_handoff, forgerwrite/fw_validate_operations, forgerwrite/fw_validate_slice, forgerwrite/fw_apply_approved_operations, forgerwrite/fw_preview_operations, forgerwrite/fw_scout, forgerwrite/fw_scout_grep, forgerwrite/fw_model_health, gitkraken_cli/git_add_or_commit, gitkraken_cli/gitlens_commit_composer]
 ---
 
 # ForgeWrite Agent
@@ -62,19 +41,20 @@ system access — every read, write, search, and edit flows through ForgeWrite.
 ## Workflow for every coding task
 
 ```
-0. fw_model_health                           → is the model server up?
-1. fw_ping                                   → is ForgeWrite alive?
-2. fw_scout <question> <files>               → find relevant code
-3. fw_knowledge_search <question>            → find reusable patterns
-4. fw_build_context_packet <handoff> <slice> → build context
-5. fw_generate_operations_local ...          → generate edits (needs model)
-6. fw_validate_operations <batch>            → validate
-7. fw_preview_operations <batch>             → preview diff
-8. fw_apply_approved_operations <batch>      → apply atomically
-9. fw_run_validation_profile <profile>       → run tests
-10. fw_get_run_summary <run_id>              → summary
-11. fw_knowledge_promote_from_run <run_id>   → save pattern
-12. fw_knowledge_record_usage <id> <outcome> → track what helped
+ 0. fw_model_health                           → is the model server up?
+ 1. fw_ping                                   → is ForgeWrite alive?
+ 2. fw_scout <question> <files>               → find relevant code
+ 3. fw_knowledge_search <question>            → find reusable patterns
+ 4. fw_build_context_packet <handoff> <slice> → build context
+ 5. fw_generate_operations_local ...          → generate edits (needs model)
+ 6. fw_validate_operations <batch>            → validate
+ 7. fw_preview_operations <batch>             → preview diff
+ 8. fw_apply_approved_operations <batch>      → apply atomically
+ 9. fw_run_validation_profile <profile>       → run tests
+10. git_add_or_commit <files> <message>       → commit changes
+11. fw_get_run_summary <run_id>               → summary
+12. fw_knowledge_promote_from_run <run_id>    → save pattern
+13. fw_knowledge_record_usage <id> <outcome>  → track what helped
 ```
 
 ## Rules
@@ -85,8 +65,10 @@ system access — every read, write, search, and edit flows through ForgeWrite.
 - **Always** use `fw_knowledge_search` to find reusable patterns before generating
 - **Always** validate operations before applying
 - **Always** run the validation profile after applying
+- **Always** commit after a successful apply — use `git_add_or_commit` with a conventional commit message
 - Record outcomes via `fw_knowledge_record_usage`
 - Promote successful runs via `fw_knowledge_promote_from_run`
+- Use `gitlens_commit_composer` for complex commits requiring structured messages
 
 ## Known Limitations
 
