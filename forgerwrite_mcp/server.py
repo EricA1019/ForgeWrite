@@ -62,38 +62,46 @@ async def fw_turbovec_index(
 ) -> dict:
     """Build (or rebuild) the TurboVec retrieval index.
 
-    Processes all markdown knowledge base files in kb_dir, embeds them
-    with gte-modernbert-base, and writes a TurboQuantIndex to index_path.
+    Index building is CPU-bound (sentence-transformers embeddings).
+    This tool returns immediately and runs indexing in the background.
+    Monitor progress via fw_turbovec_health.
 
-    NOTE: Index building is CPU-bound (sentence-transformers). This tool
-    offloads to a thread pool to prevent blocking the async event loop.
+    Args:
+        kb_dir: Directory containing curated knowledge base markdown files.
+        index_path: Where to write the turbovec index file.
+
+    Returns:
+        Dict with ok status and document count.
     """
     try:
         import asyncio
 
         from .rag import build_rag_index
 
-        index = await asyncio.to_thread(
-            build_rag_index,
-            kb_dir=kb_dir,
-            index_path=index_path,
-        )
-        doc_count = len(index.documents) if index.documents else 0
+        # Start indexing in a background task, return immediately
+        _flag = {"done": False, "error": None}
+
+        async def _bg_build() -> None:
+            try:
+                index = await asyncio.to_thread(
+                    build_rag_index,
+                    kb_dir=kb_dir,
+                    index_path=index_path,
+                )
+                _flag["done"] = True
+            except Exception as _exc:
+                _flag["error"] = str(_exc)
+
+        asyncio.create_task(_bg_build())
+
         return {
             "ok": True,
-            "indexed": doc_count,
+            "started": True,
+            "status": "indexing — run fw_turbovec_health to monitor",
             "index_path": index_path,
         }
     except Exception as exc:
         return envelope_from(exc, "turbovec_index").to_dict()
-
-
-async def fw_scout(
-    question: str,
-    allowed_files: list[str] | None = None,
-    use_model_planner: bool = False,
-    max_results: int = 20,
-) -> dict:
     """Run the Scout evidence pipeline and return an evidence packet.
 
     Scout searches for relevant code patterns via ripgrep and RAG retrieval,
