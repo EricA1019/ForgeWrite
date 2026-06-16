@@ -1,4 +1,4 @@
-"""ForgeWrite MCP server — FastMCP stdio server with 10 thin tools.
+"""ForgeWrite MCP server — FastMCP stdio server with 22 MCP tools.
 
 Design reference: §5.10
 
