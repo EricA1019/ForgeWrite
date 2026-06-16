@@ -19,6 +19,19 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 
+  markdownlint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          globs: |
+            **/*.md
+            !**/node_modules/**
+            !**/target/**
+
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
