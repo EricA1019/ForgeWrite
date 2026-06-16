@@ -1,0 +1,54 @@
+{
+  "schema_id": "forgewrite.knowledge_entry.v1",
+  "id": "7bc5dc3f-109a-4e3f-9d69-96248c3984aa",
+  "title": "Rust project scaffold \u2014 5 files with create_file",
+  "description": "Create a full Rust project with Cargo.toml, src/main.rs, src/lib.rs, src/ops.rs, and tests/integration_test.rs.",
+  "tags": [
+    "rust",
+    "scaffold",
+    "create"
+  ],
+  "language": "rust",
+  "source_run_id": "seed-005",
+  "problem_statement": "Initialize a new Rust project from scratch with proper module structure.",
+  "operations": [
+    {
+      "op": "create_file",
+      "path": "Cargo.toml",
+      "content": "[package]\nname = \"new_project\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\n"
+    },
+    {
+      "op": "create_file",
+      "path": "src/main.rs",
+      "content": "fn main() {\n    println!(\"Hello\");\n}\n"
+    },
+    {
+      "op": "create_file",
+      "path": "src/lib.rs",
+      "content": "pub mod ops;\npub use ops::*;\n"
+    },
+    {
+      "op": "create_file",
+      "path": "src/ops.rs",
+      "content": "pub fn add(a: i32, b: i32) -> i32 {\n    a + b\n}\n"
+    },
+    {
+      "op": "create_file",
+      "path": "tests/integration_test.rs",
+      "content": "use new_project::add;\n\n#[test]\nfn test_add() {\n    assert_eq!(add(2, 3), 5);\n}\n"
+    }
+  ],
+  "validation_summary": {
+    "passed": true,
+    "commands_run": [
+      "cargo check",
+      "cargo test",
+      "cargo clippy"
+    ]
+  },
+  "status": "active",
+  "curator_notes": "Full scaffold pattern \u2014 use create_file for each, all 5 in one batch.",
+  "created_at": "2026-06-16T16:34:21.288709+00:00",
+  "promoted_at": "2026-06-16T16:34:21.288709+00:00",
+  "usage_count": 1
+}

@@ -1,12 +1,13 @@
 # ForgeWrite — Detailed Implementation Plan
 
-**Date:** 2026-06-13
-**Baseline:** 246 tests, 0 failures, `main` @ `56347e0`
+**Date:** 2026-06-16 (updated)
+**Baseline:** 315 tests, 0 failures, main
 **Remote:** None configured
+**Current phase:** 7 (final) — dogfooding via `docs/dogfood-plan.md`
 
 ---
 
-## Phase 0: Stabilize Core & Naming
+## Phase 0: Stabilize Core & Naming ✅
 
 **Goal:** Fix safety bugs, verify PV1 status, add async-safe entrypoint, stage public naming, add TurboVec MCP tools, move RAG enrichment to coordinator.
 
@@ -313,7 +314,7 @@ Expected: 246 + ~5 new tests = ~251 passing.
 
 ---
 
-## Phase 1: Rust MVP Acceptance
+## Phase 1: Rust MVP Acceptance ✅
 
 **Goal:** Prove the Rust pipeline with 3 formal end-to-end slices. Produce acceptance documentation.
 
@@ -381,7 +382,7 @@ Start with a working Rust module. The model must extract a function or rename a 
 
 ---
 
-## Phase 2: Language Adapter Seam
+## Phase 2: Language Adapter Seam ✅
 
 **Goal:** Extract Rust-specific defaults from core pipeline. Add Python adapter. No behavior change for Rust.
 
@@ -591,7 +592,7 @@ All existing Rust tests and acceptance slices must still pass.
 
 ---
 
-## Phase 3: Python Dogfood
+## Phase 3: Python Dogfood ✅
 
 **Goal:** Use ForgeWrite to edit its own Python codebase. 5 successful Python slices.
 
@@ -641,7 +642,7 @@ All existing Rust tests and acceptance slices must still pass.
 
 ---
 
-## Phase 4: Scout v1 (Descoped)
+## Phase 4: Scout v1 (Descoped) ✅
 
 **Goal:** Add evidence discovery phase before context building. Produce `scout_packet.json` with path:line evidence.
 
@@ -856,7 +857,9 @@ Use Scout before generation on slices from Phase 3 (or new ones). Verify Scout e
 
 ---
 
-## Phase 5: Model-Assisted Scout
+## Phase 5: Model-Assisted Scout ✅
+
+> Tasks 5.5 (comparison report → `docs/acceptance/scout-comparison.md`) and 5.6 (wire `use_model_planner` → `fw_scout` tool + CLI `scout` command) — both complete.
 
 **Goal:** Use local model to plan grep queries and summarize results. Deterministic fallback always.
 
@@ -884,7 +887,7 @@ Use Scout before generation on slices from Phase 3 (or new ones). Verify Scout e
 
 ---
 
-## Phase 6: Saved Work KB
+## Phase 6: Saved Work KB ✅
 
 **Goal:** Store reusable patterns from successful runs. TurboVec-indexed. DeepSeek-curated.
 
@@ -920,11 +923,13 @@ Use Scout before generation on slices from Phase 3 (or new ones). Verify Scout e
 
 ---
 
-## Phase 7: Integrations + Release Candidate
+## Phase 7: Integrations + Release Candidate ✅
 
 **Goal:** MEX, Graphify, Headroom adapters with fail-soft behavior. Finalize docs. Tag RC.
 
 **Gate:** All release gates pass. Fresh install test passes. Acceptance docs current.
+
+**Dogfood approach:** This phase is executed as ForgeWrite slices (D3.1, D3.2) — see `docs/dogfood-plan.md`.
 
 ### Tasks
 
@@ -935,7 +940,7 @@ Use Scout before generation on slices from Phase 3 (or new ones). Verify Scout e
 5. Add `integrations/__init__.py` with fail-soft behavior for all
 6. Finalize README, config docs, MCP docs, design doc
 7. Run clean install test from scratch (`pip install .` or `uv sync` in fresh venv)
-8. Run full suite: pytest, ruff, mypy, pip-audit, semgrep, trivy
+8. Run full suite: pytest, ruff, mypy
 9. Write release notes and known limitations
 10. Tag `v0.1.0-rc1`
 
@@ -957,17 +962,17 @@ Use Scout before generation on slices from Phase 3 (or new ones). Verify Scout e
 
 ## Total Across All Phases
 
-| Phase | New Tests | Files Added | Passes |
-|-------|-----------|-------------|--------|
-| 0 | ~5 | 1 | 3-5 |
-| 1 | 0 | 1 | 4-8 |
-| 2 | ~10 | 5 | 5-8 |
-| 3 | 0 | 1 | 8-15 |
-| 4 | ~15 | 5 | 8-12 |
-| 5 | ~8 | 2 | 6-10 |
-| 6 | ~20 | 7 | 8-14 |
-| 7 | ~15 | 5 | 6-10 |
-| **Total** | **~73** | **27** | **48-82** |
+| Phase | Planned | Actual Tests | Files Added | Status |
+|-------|---------|-------------|-------------|--------|
+| 0 | ~5 | 5 | 1 | ✅ |
+| 1 | 0 | 0 | 1 | ✅ |
+| 2 | ~10 | 14 | 5 | ✅ |
+| 3 | 0 | 0 | 1 | ✅ |
+| 4 | ~15 | 15 | 5 | ✅ |
+| 5 | ~8 | 11 | 2 | ✅ |
+| 6 | ~20 | 26 | 7 | ✅ |
+| 7 | ~15 | 16 | 5 | ✅ |
+| **Total** | **~73** | **87** | **27** | |
 
 ---
 

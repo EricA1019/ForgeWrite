@@ -111,6 +111,7 @@ class SliceCoordinator:
 
         try:
             status = self._validate_contracts(handoff, slice_contract)
+            status = self._enrich_with_scout(handoff, slice_contract)
             status = self._build_context(handoff, slice_contract)
             # Generate + schema-validate with retry on schema/semantic errors
             status = await self._generate_with_schema_repair(handoff, slice_contract)
@@ -157,6 +158,41 @@ class SliceCoordinator:
     def _validate_contracts(self, handoff: dict, slice_contract: dict) -> str:
         self._contract_registry.validate("handoff.v1.json", handoff)
         self._contract_registry.validate("slice.v1.json", slice_contract)
+        return _STATUS_CONTRACTS_VALIDATED
+
+    def _enrich_with_scout(self, handoff: dict, slice_contract: dict) -> str:
+        """Run Scout evidence pipeline before context building.
+
+        Attaches scout packet metadata to the context packet if Scout
+        is enabled (config.scout.enabled) and a question is available.
+        This is an Open/Closed extension: no existing module is modified.
+        """
+        # Scout is optional — skip if no description in handoff
+        question = handoff.get("description", "")
+        if not question:
+            return _STATUS_CONTRACTS_VALIDATED
+
+        try:
+            from .scout.coordinator import ScoutCoordinator
+
+            scout = ScoutCoordinator(
+                repo_root=self._repo_root,
+                enricher=self._enricher,
+            )
+            allowed = slice_contract.get("allowed_files", [])
+            packet = scout.scout(question=question, allowed_files=allowed)
+            self._scout_packet = packet
+            write_artifact(
+                self._run_dir,
+                "scout_packet.json",
+                packet.__dict__,
+            )
+        except Exception as exc:
+            # Scout failures are non-fatal — log and continue
+            write_dead_letter(
+                self._run_dir,
+                f"Scout enrichment failed: {exc}",
+            )
         return _STATUS_CONTRACTS_VALIDATED
 
     def _build_context(self, handoff: dict, slice_contract: dict) -> str:

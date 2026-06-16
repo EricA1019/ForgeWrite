@@ -78,6 +78,10 @@ scope_must_match_original_slice = true
 | `language` | string | yes | — | Primary language: `"rust"`, `"python"`, `"typescript"` |
 | `repo_root` | string | no | `"."` | Path to repo root relative to config |
 
+> **Note:** Setting `language = "python"` produces Python validation commands
+> (`ruff check`, `ruff format --check`, `pytest -q`, `mypy --strict`).
+> Use `forgerwrite init --language python` to scaffold a new Python project.
+
 ### `[local_model]`
 
 | Field | Type | Required | Default | Description |

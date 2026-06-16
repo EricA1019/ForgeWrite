@@ -40,7 +40,19 @@ class TestCreateFileHandler:
         outcome = handler.apply(tmp_path, op)
         assert outcome.created is True
         assert (tmp_path / "deep" / "nested" / "dir" / "file.txt").exists()
+    def test_rejects_oversized_content(self, tmp_path: Path) -> None:
+        """create_file rejects content exceeding the hard cap."""
+        from forgerwrite_mcp.operations.create_file import (
+            CreateFileHandler,
+            OperationApplyError,
+        )
 
+        handler = CreateFileHandler()
+        oversized = "x" * 200_001
+        op = {"op": "create_file", "path": "too_big.py", "content": oversized}
+        with pytest.raises(OperationApplyError) as exc:
+            handler.apply(tmp_path, op)
+        assert "200000" in str(exc.value.message)
     def test_rejects_content_over_limit(self, tmp_path: Path) -> None:
         """create_file rejects content exceeding operation_content_max_bytes."""
         from forgerwrite_mcp.config import LimitsConfig

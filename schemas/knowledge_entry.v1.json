@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forgewrite.knowledge_entry.v1",
+  "title": "Knowledge Entry",
+  "description": "A reusable coding pattern extracted from a successful ForgeWrite run.",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "id",
+    "title",
+    "description",
+    "language",
+    "problem_statement",
+    "status",
+    "created_at"
+  ],
+  "properties": {
+    "schema_id": {
+      "const": "forgewrite.knowledge_entry.v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "UUID for this entry."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short title (e.g. 'Fix unresolved import in Rust')."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One- or two-sentence summary of the pattern."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Search tags (e.g. ['rust', 'import', 'compile-error'])."
+    },
+    "language": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Programming language (rust, python, ...)."
+    },
+    "source_run_id": {
+      "type": "string",
+      "description": "The ForgeWrite run ID this was promoted from."
+    },
+    "problem_statement": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Natural-language description of the problem solved."
+    },
+    "operations": {
+      "type": "array",
+      "description": "The operation batch JSON that was applied successfully.",
+      "items": { "type": "object" }
+    },
+    "validation_summary": {
+      "type": "object",
+      "description": "Summary of validation results from the source run.",
+      "properties": {
+        "passed": { "type": "boolean" },
+        "commands_run": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "active", "deprecated"],
+      "description": "Lifecycle status."
+    },
+    "curator_notes": {
+      "type": "string",
+      "description": "Notes from the agent that promoted this entry."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp."
+    },
+    "promoted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When this was promoted from draft to active."
+    },
+    "usage_count": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0
+    }
+  }
+}

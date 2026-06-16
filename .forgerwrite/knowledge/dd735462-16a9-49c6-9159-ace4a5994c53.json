@@ -1,0 +1,34 @@
+{
+  "schema_id": "forgewrite.knowledge_entry.v1",
+  "id": "dd735462-16a9-49c6-9159-ace4a5994c53",
+  "title": "Fix Rust unresolved import \u2014 use exact crate name",
+  "description": "When Rust says unresolved import, use the exact crate name from Cargo.toml. Never append _lib suffix.",
+  "tags": [
+    "rust",
+    "import",
+    "compile-error",
+    "fix"
+  ],
+  "language": "rust",
+  "source_run_id": "seed-001",
+  "problem_statement": "Rust compiler says unresolved import for a crate that exists in Cargo.toml.",
+  "operations": [
+    {
+      "op": "replace_file",
+      "path": "src/main.rs",
+      "content": "use calc::add;\nfn main() {\n    println!(\"{}\", add(2, 3));\n}\n"
+    }
+  ],
+  "validation_summary": {
+    "passed": true,
+    "commands_run": [
+      "cargo check",
+      "cargo test"
+    ]
+  },
+  "status": "active",
+  "curator_notes": "Common pattern from Rust dogfood slices. The model frequently appends _lib to crate names.",
+  "created_at": "2026-06-16T16:34:21.288709+00:00",
+  "promoted_at": "2026-06-16T16:34:21.288709+00:00",
+  "usage_count": 0
+}

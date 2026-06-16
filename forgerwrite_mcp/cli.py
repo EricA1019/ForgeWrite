@@ -145,7 +145,8 @@ def _get_root() -> Path:
 def _json_out(data: dict, json_flag: bool) -> None:
     """Print output as JSON or rich-formatted."""
     if json_flag:
-        console.print(json.dumps(data, indent=2, default=str))
+        # Plain print avoids Rich ANSI formatting that breaks JSON parsing
+        print(json.dumps(data, indent=2, default=str))
     else:
         console.print(data)
 
@@ -469,6 +470,121 @@ def build_index(
             },
             json_flag,
         )
+    except Exception as exc:
+        _json_out({"ok": False, "error": str(exc)}, json_flag)
+
+
+@app.command()
+def scout(
+    question: str = typer.Argument(..., help="Natural-language question to search for."),
+    allowed_files: list[str] | None = typer.Option(
+        None, "--allowed-file", "-f", help="Files to search in (repeatable)."
+    ),
+    use_model_planner: bool = typer.Option(
+        False, "--use-model-planner", help="Use the local model to plan grep queries."
+    ),
+    json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Run Scout evidence discovery.
+
+    Searches for relevant code patterns via ripgrep and RAG retrieval,
+    producing path:line evidence for the given question.
+    """
+    try:
+        from .config import load_config
+        from .rag import build_rag_enricher
+        from .scout.coordinator import ScoutCoordinator
+
+        config = load_config(_get_root())
+        enricher = build_rag_enricher(config, project_root=_get_root())
+
+        coord = ScoutCoordinator(
+            repo_root=_get_root(),
+            enricher=enricher,
+            use_model_planner=use_model_planner,
+        )
+        packet = coord.scout(
+            question=question,
+            allowed_files=allowed_files or [],
+        )
+        _json_out(
+            {
+                "ok": True,
+                "question": question,
+                "evidence": packet.exact_evidence,
+                "retrieval_hits": packet.retrieval_hits,
+                "recommended_files": packet.recommended_allowed_files,
+            },
+            json_flag,
+        )
+    except Exception as exc:
+        _json_out({"ok": False, "error": str(exc)}, json_flag)
+
+
+@app.command()
+def token_stats(
+    json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Show accumulated token usage and cloud cost savings.
+
+    Tracks every local model call and estimates what it would have cost
+    with cloud APIs (Claude 3.5 Sonnet, GPT-4o).
+    """
+    from .token_tracker import TokenTracker
+
+    tracker = TokenTracker(tracker_dir=_get_root() / ".forgerwrite")
+    stats = tracker.get_stats()
+    _json_out({"ok": True, **stats}, json_flag)
+
+
+@app.command()
+def tui() -> None:
+    """Launch the ForgeWrite terminal dashboard.
+
+    Shows token usage, recent runs, knowledge base status, and system
+    integration health in a Textual TUI.
+    """
+    from .tui import run_tui
+
+    run_tui()
+
+
+@app.command()
+def audit_report(
+    json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Analyze ForgeWrite audit logs and produce a report."""
+    from .audit_analyzer import analyze, report_markdown
+
+    analysis = analyze(_get_root())
+    if json_flag:
+        _json_out({"ok": True, **analysis}, json_flag)
+    else:
+        console.print(report_markdown(analysis))
+
+
+@app.command()
+def model_status(
+    json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
+) -> None:
+    """Check llama.cpp model server health and loaded models."""
+    from .config import load_config
+    from .llama_client import LlamaCppClient
+
+    try:
+        config = load_config(_get_root())
+        client = LlamaCppClient.from_config(config.local_model)
+        health = client.check_health()
+
+        from .model_state import save_model_state
+
+        save_model_state(
+            repo_root=_get_root(),
+            model_name=config.local_model.model,
+            endpoint=config.local_model.endpoint,
+            healthy=health["healthy"],
+        )
+        _json_out({"ok": True, **health}, json_flag)
     except Exception as exc:
         _json_out({"ok": False, "error": str(exc)}, json_flag)
 

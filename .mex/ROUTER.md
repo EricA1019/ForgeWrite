@@ -54,24 +54,28 @@ Then read this file fully before doing anything else in this session.
 
 **Known issues:**
 - Gemma 4 12B Q4 produces valid JSON with json_object but may still omit fields on first attempt; schema repair loop retries
+- Planner `_plan_with_model` uses `asyncio.run()` which may raise `RuntimeError` if an event loop is already running (pytest-asyncio env); caught by `except Exception` → fallback works correctly
 
 **Resolved debt:**
 - PV1: ✅ Verified — `test_permission_rule_reads_config_*` (2 tests pass)
 - PV2: ✅ Fixed — added `run_async()` + `_maybe_repair_async()`, `run()` delegates via `asyncio.run()`
 
-**Known debt (deferred to Phase 3):**
+**Known debt (deferred to Phase 7+):**
 - RAG enrichment duplicated in server tool (`fw_generate_operations_local`) and coordinator — two code paths
+- Phase 5.5 (comparison report): not yet started — needs 5 hand-crafted slices comparing deterministic vs model-assisted query planning
+- Phase 5.6 (allow setting `use_model_planner` from tool/CLI): Task 5.6 not yet started — `fw_scout` tool and CLI `forgerwrite scout` command always use `use_model_planner=False` currently
 
 **Implementation plan:** `docs/implementation-plan.md` (design reference)
 **Handoff (DeepSeek Flash):** `docs/handoff/phase-0-handoff.md` (copy-paste executable tasks)
 - Phase 0: Stabilize (PV1/PV2, naming, TurboVec MCP tools, RAG health in doctor) ✅
 - Phase 1: Rust MVP Acceptance (3 formal slices) — ⚠️ See `docs/acceptance/rust.md`
-- Phase 2: Language Adapter Seam (Protocol + Rust/Python adapters)
+- Phase 2: Language Adapter Seam (Protocol + Rust/Python adapters) ✅
 - Phase 3: Python Dogfood (5 slices) — ✅ P1-P3, P5 complete; P4 LLM issue documented
-- Phase 4: Scout v1 (evidence pipeline, safe_grep, scout_packet)
-- Phase 5: Model-Assisted Scout (planner + summarizer + fallback)
-- Phase 6: Saved Work KB (knowledge entries, TurboVec-indexed, DeepSeek-curated)
-- Phase 7: Integrations + RC (MEX/Graphify/Headroom adapters, docs, release tag)
+- Phase 4: Scout v1 (evidence pipeline, safe_grep, scout_packet) ✅
+- Phase 5: Model-Assisted Scout ✅ — planner, summarizer, fallback, comparison report, use_model_planner wired to tool/CLI
+- Phase 6: Saved Work KB ✅ — schemas, store, promotion, indexer, 6 MCP tools, 5 seed entries, 3 usage recordings
+- Phase 7: Integrations + RC ✅ — MEX/Graphify/Headroom adapters, docs, release notes, v0.1.0-rc1 tagged
+- Complete: 333 tests, 15 MCP tools, 13 CLI commands, 2 languages
 - Phase 8+ (deferred): Third language, package rename, production hosting
 
 ## Routing Table

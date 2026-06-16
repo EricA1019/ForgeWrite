@@ -94,6 +94,265 @@ async def fw_turbovec_index(
         return envelope_from(exc, "turbovec_index").to_dict()
 
 
+async def fw_scout(
+    question: str,
+    allowed_files: list[str] | None = None,
+    use_model_planner: bool = False,
+) -> dict:
+    """Run the Scout evidence pipeline and return an evidence packet.
+
+    Scout searches for relevant code patterns via ripgrep and RAG retrieval,
+    producing path:line evidence for the requested question.
+    """
+    try:
+        from .config import load_config
+        from .rag import build_rag_enricher
+        from .scout.coordinator import ScoutCoordinator
+
+        config = load_config(Path.cwd())
+        enricher = build_rag_enricher(config, project_root=Path.cwd())
+
+        scout = ScoutCoordinator(
+            repo_root=Path.cwd(),
+            enricher=enricher,
+            use_model_planner=use_model_planner,
+        )
+        packet = scout.scout(
+            question=question,
+            allowed_files=allowed_files or [],
+        )
+        return {"ok": True, "packet": packet.__dict__}
+    except Exception as exc:
+        return envelope_from(exc, "scout").to_dict()
+
+
+async def fw_scout_grep(
+    queries: list[str],
+    allowed_files: list[str] | None = None,
+) -> dict:
+    """Bounded grep through ForgeWrite path policy.
+
+    Runs ripgrep with safety constraints — no files outside the repo,
+    capped matches, and timeout.
+    """
+    try:
+        from .scout.safe_grep import safe_grep
+
+        # If allowed_files is provided, scope the search to those paths
+        search_queries = list(queries)
+        if allowed_files:
+            search_queries.extend(allowed_files)
+
+        result = safe_grep(
+            repo_root=Path.cwd(),
+            queries=search_queries,
+        )
+        return {
+            "ok": True,
+            "matches": [
+                {"path": m.path, "line_number": m.line_number, "line_content": m.line_content}
+                for m in result.matches
+            ],
+            "truncated": result.truncated,
+            "queries": result.queries,
+        }
+    except Exception as exc:
+        return envelope_from(exc, "scout_grep").to_dict()
+
+
+async def fw_knowledge_search(query: str, k: int = 5) -> dict:
+    """Search the knowledge base for relevant patterns.
+
+    Uses semantic search via the knowledge indexer.
+    """
+    try:
+        from .knowledge.indexer import KnowledgeIndexer
+        from .knowledge.store import KnowledgeStore
+
+        store = KnowledgeStore(repo_root=Path.cwd())
+        entries = store.list(status="active")
+        if not entries:
+            return {"ok": True, "results": [], "total": 0}
+
+        indexer = KnowledgeIndexer()
+        indexer.index(entries)
+        results = indexer.search(query, k=k)
+        return {"ok": True, "results": results, "total": len(results)}
+    except Exception as exc:
+        return envelope_from(exc, "knowledge_search").to_dict()
+
+
+async def fw_knowledge_save_entry(entry: dict) -> dict:
+    """Save a knowledge entry to the KB."""
+    try:
+        from .contracts.registry import ContractRegistry
+        from .knowledge.store import KnowledgeStore
+
+        registry = ContractRegistry(Path(__file__).parent.parent / "schemas")
+        registry.validate("knowledge_entry.v1.json", entry)
+
+        store = KnowledgeStore(repo_root=Path.cwd())
+        store.save(entry)
+        return {"ok": True, "entry_id": entry.get("id")}
+    except Exception as exc:
+        return envelope_from(exc, "knowledge_save_entry").to_dict()
+
+
+async def fw_knowledge_get_entry(entry_id: str) -> dict:
+    """Retrieve a single knowledge entry by ID."""
+    try:
+        from .knowledge.store import KnowledgeStore
+
+        store = KnowledgeStore(repo_root=Path.cwd())
+        entry = store.get(entry_id)
+        if entry is None:
+            return {
+                "ok": False,
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": f"Knowledge entry {entry_id} not found",
+                },
+            }
+        return {"ok": True, "entry": entry}
+    except Exception as exc:
+        return envelope_from(exc, "knowledge_get_entry").to_dict()
+
+
+async def fw_knowledge_promote_from_run(run_id: str, curator_notes: str = "") -> dict:
+    """Promote a successful run into the knowledge base.
+
+    Reads run artifacts, constructs a knowledge entry, validates it,
+    saves it, and returns the entry.
+    """
+    try:
+        from .knowledge.promotion import promote_from_run
+        from .knowledge.store import KnowledgeStore
+
+        entry = promote_from_run(
+            repo_root=Path.cwd(),
+            run_id=run_id,
+            curator_notes=curator_notes,
+        )
+        if entry is None:
+            return {
+                "ok": False,
+                "error": {
+                    "code": "PROMOTE_FAILED",
+                    "message": f"Cannot promote run {run_id} — "
+                               f"not found, incomplete, or didn't pass validation.",
+                },
+            }
+
+        store = KnowledgeStore(repo_root=Path.cwd())
+        store.save(entry)
+        return {"ok": True, "entry": entry}
+    except Exception as exc:
+        return envelope_from(exc, "knowledge_promote_from_run").to_dict()
+
+
+async def fw_knowledge_record_usage(entry_id: str, outcome: str, notes: str = "") -> dict:
+    """Record a usage outcome for a knowledge entry.
+
+    Args:
+        entry_id: The knowledge entry ID.
+        outcome: One of 'helped', 'did_not_help', 'neutral'.
+        notes: Optional notes about the outcome.
+    """
+    try:
+        from datetime import datetime, timezone
+
+        from .contracts.registry import ContractRegistry
+        from .knowledge.store import KnowledgeStore
+
+        usage = {
+            "schema_id": "forgewrite.knowledge_usage.v1",
+            "entry_id": entry_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "outcome": outcome,
+            "notes": notes,
+        }
+
+        registry = ContractRegistry(Path(__file__).parent.parent / "schemas")
+        registry.validate("knowledge_usage.v1.json", usage)
+
+        store = KnowledgeStore(repo_root=Path.cwd())
+        entry = store.get(entry_id)
+        if entry is None:
+            return {
+                "ok": False,
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": f"Knowledge entry {entry_id} not found",
+                },
+            }
+
+        # Increment usage count on the entry
+        entry["usage_count"] = entry.get("usage_count", 0) + 1
+        store.save(entry)
+
+        return {"ok": True, "usage": usage, "entry_usage_count": entry["usage_count"]}
+    except Exception as exc:
+        return envelope_from(exc, "knowledge_record_usage").to_dict()
+
+
+async def fw_knowledge_deprecate_entry(entry_id: str) -> dict:
+    """Mark a knowledge entry as deprecated."""
+    try:
+        from .knowledge.store import KnowledgeStore
+
+        store = KnowledgeStore(repo_root=Path.cwd())
+        entry = store.get(entry_id)
+        if entry is None:
+            return {
+                "ok": False,
+                "error": {
+                    "code": "NOT_FOUND",
+                    "message": f"Knowledge entry {entry_id} not found",
+                },
+            }
+
+        store.deprecate(entry_id)
+        return {"ok": True, "entry_id": entry_id, "status": "deprecated"}
+    except Exception as exc:
+        return envelope_from(exc, "knowledge_deprecate_entry").to_dict()
+
+
+async def fw_token_stats() -> dict:
+    """Return accumulated token usage and estimated cloud cost savings."""
+    try:
+        from .token_tracker import TokenTracker
+
+        tracker = TokenTracker(tracker_dir=Path.cwd() / ".forgerwrite")
+        stats = tracker.get_stats()
+        return {"ok": True, **stats}
+    except Exception as exc:
+        return envelope_from(exc, "token_stats").to_dict()
+
+
+async def fw_model_health() -> dict:
+    """Check llama.cpp model server health and loaded models."""
+    try:
+        from .config import load_config
+        from .llama_client import LlamaCppClient
+        from .model_state import load_last_model, save_model_state
+
+        config = load_config(Path.cwd())
+        client = LlamaCppClient.from_config(config.local_model)
+        health = client.check_health()
+
+        # Save state for TUI / dashboard
+        save_model_state(
+            repo_root=Path.cwd(),
+            model_name=config.local_model.model,
+            endpoint=config.local_model.endpoint,
+            healthy=health["healthy"],
+        )
+
+        return {"ok": True, **health}
+    except Exception as exc:
+        return envelope_from(exc, "model_health").to_dict()
+
+
 def _redirect_stdout_to_stderr() -> None:
     """Redirect sys.stdout to sys.stderr.
 
@@ -110,8 +369,6 @@ def boot() -> None:
     This is the entry point registered in pyproject.toml as
     `forgerwrite-mcp = "forgerwrite_mcp.server:boot"`.
     """
-    _redirect_stdout_to_stderr()
-
     # Import FastMCP lazily — it's only needed at runtime.
     from mcp.server.fastmcp import FastMCP
 
@@ -321,6 +578,16 @@ def boot() -> None:
 
     mcp.tool()(fw_turbovec_health)
     mcp.tool()(fw_turbovec_index)
+    mcp.tool()(fw_scout)
+    mcp.tool()(fw_scout_grep)
+    mcp.tool()(fw_knowledge_search)
+    mcp.tool()(fw_knowledge_save_entry)
+    mcp.tool()(fw_knowledge_get_entry)
+    mcp.tool()(fw_knowledge_promote_from_run)
+    mcp.tool()(fw_knowledge_record_usage)
+    mcp.tool()(fw_knowledge_deprecate_entry)
+    mcp.tool()(fw_token_stats)
+    mcp.tool()(fw_model_health)
 
     # ── Start server ──────────────────────────────────────────────────
     mcp.run(transport="stdio")

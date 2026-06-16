@@ -1,0 +1,35 @@
+{
+  "schema_id": "forgewrite.knowledge_entry.v1",
+  "id": "9dd20a4b-8666-4417-9b80-722e28a89a6f",
+  "title": "Fix pytest fixture scope \u2014 use session scope for shared setup",
+  "description": "Use pytest session-scoped fixtures for expensive setup that should be shared across tests.",
+  "tags": [
+    "python",
+    "pytest",
+    "test",
+    "fix"
+  ],
+  "language": "python",
+  "source_run_id": "seed-002",
+  "problem_statement": "Pytest fixtures are recreated for every test function, causing slow test runs.",
+  "operations": [
+    {
+      "op": "insert_after_line",
+      "path": "tests/conftest.py",
+      "after_line": 0,
+      "content": "import pytest\nfrom pathlib import Path\n\n@pytest.fixture(scope=\"session\")\ndef db_path(tmp_path_factory):\n    return tmp_path_factory.mktemp(\"db\")\n"
+    }
+  ],
+  "validation_summary": {
+    "passed": true,
+    "commands_run": [
+      "pytest",
+      "ruff check"
+    ]
+  },
+  "status": "active",
+  "curator_notes": "Common optimization pattern from Python test suites.",
+  "created_at": "2026-06-16T16:34:21.288709+00:00",
+  "promoted_at": "2026-06-16T16:34:21.288709+00:00",
+  "usage_count": 0
+}

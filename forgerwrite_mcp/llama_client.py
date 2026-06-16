@@ -133,6 +133,67 @@ class LlamaCppClient:
             retry_multiplier=config.retry_multiplier,
         )
 
+    def check_health(self) -> dict:
+        """Check if the llama.cpp server is reachable and models are loaded.
+
+        Returns:
+            Dict with ``healthy``, ``model_name``, ``endpoint``, and
+            ``error`` (if unhealthy).
+        """
+        try:
+            import httpx as _httpx
+
+            url = f"{self._endpoint}/models"
+            with _httpx.Client(timeout=5.0) as hc:
+                resp = hc.get(url)
+                if resp.status_code != 200:
+                    return {
+                        "healthy": False,
+                        "endpoint": self._endpoint,
+                        "model_name": self._model,
+                        "error": f"HTTP {resp.status_code}",
+                    }
+                data = resp.json()
+                models = data.get("data", [])
+                return {
+                    "healthy": True,
+                    "endpoint": self._endpoint,
+                    "model_name": self._model,
+                    "loaded_models": [m.get("id", "unknown") for m in models],
+                    "model_count": len(models),
+                }
+        except Exception as exc:
+            return {
+                "healthy": False,
+                "endpoint": self._endpoint,
+                "model_name": self._model,
+                "error": str(exc),
+            }
+
+    def _record_usage(self, response_body: dict[str, Any], *, purpose: str) -> None:
+        """Extract token usage from llama.cpp response and track it."""
+        usage = response_body.get("usage", {})
+        if not usage:
+            return
+        prompt_tokens: int = usage.get("prompt_tokens", 0)
+        completion_tokens: int = usage.get("completion_tokens", 0)
+        if prompt_tokens == 0 and completion_tokens == 0:
+            return
+        try:
+            from pathlib import Path
+
+            from .token_tracker import TokenTracker
+
+            tracker = TokenTracker(tracker_dir=Path.cwd() / ".forgerwrite")
+            tracker.record(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                model_name=self._model,
+                purpose=purpose,
+            )
+        except Exception:
+            pass  # Token tracking is best-effort, never block the pipeline
+
     async def generate_operation_batch(
         self,
         system_prompt: str,
@@ -192,6 +253,7 @@ class LlamaCppClient:
                     )
 
                 body = response.json()
+                self._record_usage(body, purpose="generate_operations")
                 choice = body.get("choices", [{}])[0].get("message", {})
                 # Check both content and reasoning_content (Gemma 4 puts JSON
                 # in content even when reasoning_content is also populated).

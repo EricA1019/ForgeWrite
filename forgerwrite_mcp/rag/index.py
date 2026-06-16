@@ -59,9 +59,30 @@ class RagIndex:
 
         model = SentenceTransformer("Alibaba-NLP/gte-modernbert-base", device="cpu")
 
-        texts = [f"{d.title}\n{d.content}" for d in documents]
-        vectors = np.array(model.encode(texts, show_progress_bar=False)).astype(np.float32)
+        # Truncate long documents to avoid CPU overload during embedding.
+        # gte-modernbert-base has 8192 token context; we cap content at 2000
+        # chars (~500 tokens) so the title + content fits comfortably.
+        _MAX_CONTENT_CHARS = 2000
+        _BATCH_SIZE = 32
+        texts: list[str] = []
+        for d in documents:
+            content = d.content[:_MAX_CONTENT_CHARS]
+            texts.append(f"{d.title}\n{content}")
 
+        num_batches = (len(texts) + _BATCH_SIZE - 1) // _BATCH_SIZE
+        print(f"  Embedding {len(texts)} documents on CPU in {num_batches} batches (content capped at {_MAX_CONTENT_CHARS} chars)...")
+        import sys
+
+        all_vectors: list[np.ndarray] = []
+        for i in range(0, len(texts), _BATCH_SIZE):
+            batch = texts[i : i + _BATCH_SIZE]
+            vecs = model.encode(batch, show_progress_bar=False)
+            all_vectors.append(np.array(vecs).astype(np.float32))
+            batch_num = i // _BATCH_SIZE + 1
+            print(f"    Batch {batch_num}/{num_batches} done ({len(batch)} docs)", flush=True)
+        vectors = np.concatenate(all_vectors, axis=0)
+
+        print(f"  Building TurboQuantIndex ({self._dim}d, {self._bit_width}-bit)...")
         idx = TurboQuantIndex(dim=self._dim, bit_width=self._bit_width)
         idx.add(vectors)
         self._turbovec = idx

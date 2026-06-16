@@ -109,34 +109,66 @@ def build_rag_index(kb_dir: str = "data/rag", index_path: str = "data/rag/index.
 
     all_docs: list[ProcessedDoc] = []
 
-    # Curated KB
+    # Curated KB: Rust
     curated = kb / "rust-knowledge-base.md"
     if curated.exists():
+        print(f"Processing {curated.name}...")
         processor = DocumentPreprocessor(source="curated")
         all_docs.extend(processor.process_file(str(curated)))
+
+    # Curated KB: Python
+    py_curated = kb / "python-knowledge-base.md"
+    if py_curated.exists():
+        print(f"Processing {py_curated.name}...")
+        processor = DocumentPreprocessor(source="curated")
+        all_docs.extend(processor.process_file(str(py_curated)))
 
     # External: rust-cookbook
     cookbook_dir = kb / "rust-cookbook" / "src"
     if cookbook_dir.is_dir():
+        md_files = sorted(cookbook_dir.rglob("*.md"))
+        print(f"Processing rust-cookbook ({len(md_files)} files)...")
         processor = DocumentPreprocessor(source="rust-cookbook")
-        for md_file in sorted(cookbook_dir.rglob("*.md")):
+        for md_file in md_files:
             all_docs.extend(processor.process_file(str(md_file)))
 
     # External: rust-by-example
     rbe_dir = kb / "rust-by-example" / "src"
     if rbe_dir.is_dir():
+        md_files = sorted(rbe_dir.rglob("*.md"))
+        print(f"Processing rust-by-example ({len(md_files)} files)...")
         processor = DocumentPreprocessor(source="rust-by-example")
-        for md_file in sorted(rbe_dir.rglob("*.md")):
+        for md_file in md_files:
+            all_docs.extend(processor.process_file(str(md_file)))
+
+    # External: pydantic v2 docs (markdown)
+    pydantic_dir = kb / "pydantic-docs" / "docs"
+    if pydantic_dir.is_dir():
+        md_files = sorted(pydantic_dir.rglob("*.md"))
+        print(f"Processing pydantic-docs ({len(md_files)} files)...")
+        processor = DocumentPreprocessor(source="pydantic")
+        for md_file in md_files:
+            all_docs.extend(processor.process_file(str(md_file)))
+
+    # External: httpx docs (markdown)
+    httpx_dir = kb / "httpx-docs" / "docs"
+    if httpx_dir.is_dir():
+        md_files = sorted(httpx_dir.rglob("*.md"))
+        print(f"Processing httpx-docs ({len(md_files)} files)...")
+        processor = DocumentPreprocessor(source="httpx")
+        for md_file in md_files:
             all_docs.extend(processor.process_file(str(md_file)))
 
     # Filter out empty docs (thin wrappers with only {{#include}} directives)
     all_docs = [d for d in all_docs if d.content.strip()]
+    print(f"Total documents after filtering: {len(all_docs)}")
 
     index = RagIndex(dim=768, bit_width=4)
     index.build(all_docs)
 
     out = Path(index_path)
     out.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Saving index to {index_path}...")
     if all_docs:
         index.save(str(out))
 

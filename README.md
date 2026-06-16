@@ -1,8 +1,10 @@
-# ForgeWrite MCP
+# ForgeWrite MCP v0.1.0-rc1
 
 **Local-first MCP coding service with hard safety rails.**
 
-ForgeWrite delegates narrow, well-scoped file edits to a local coding model (llama.cpp + OmniCoder 9B) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree. Includes RAG (Retrieval-Augmented Generation) with semantic search over a curated Rust knowledge base to improve model output quality.
+ForgeWrite delegates narrow, well-scoped file edits to a local LLM (Gemma 4 12B via llama.cpp) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree.
+
+**315 tests. 15 MCP tools. Rust + Python. RAG + Scout + Knowledge Base.**
 
 ---
 
@@ -15,11 +17,11 @@ cd forgewrite_mcp
 uv sync
 
 # 2. Scaffold your project
-uv run forgerwrite init
+uv run forgerwrite init --language rust   # or --language python
 
-# 3. Edit .forgerwrite/forgerwrite.toml with your model endpoint (OmniCoder 9B default, see docs/llama-cpp-setup.md for Gemma 4 or other models)
+# 3. Edit .forgerwrite/forgerwrite.toml with your model endpoint
 
-# 4. Build the RAG search index (optional, improves model quality)
+# 4. Build the RAG search index
 uv run forgerwrite build-index
 
 # 5. Run the doctor check
@@ -85,7 +87,7 @@ forgerwrite_mcp/
 
 ---
 
-## MCP Tools
+## MCP Tools (15)
 
 | Tool | Description |
 |------|-------------|
@@ -99,23 +101,35 @@ forgerwrite_mcp/
 | `fw_apply_approved_operations` | Apply approved operations (TOCTOU-guarded) |
 | `fw_run_validation_profile` | Run CI validation commands |
 | `fw_get_run_summary` | Get Markdown summary of a run |
+| `fw_turbovec_health` | RAG index health check |
+| `fw_turbovec_index` | Rebuild RAG search index |
+| `fw_scout` | Evidence discovery via ripgrep + RAG |
+| `fw_scout_grep` | Bounded grep through path policy |
+| `fw_knowledge_search` | Search the Saved Work KB |
+| `fw_knowledge_save_entry` | Save a knowledge entry |
+| `fw_knowledge_get_entry` | Get entry by ID |
+| `fw_knowledge_promote_from_run` | Promote a run to knowledge entry |
+| `fw_knowledge_record_usage` | Record usage outcome |
+| `fw_knowledge_deprecate_entry` | Mark entry as deprecated |
 
----
-
-## CLI Commands
+## CLI Commands (13)
 
 | Command | Description |
 |---------|-------------|
 | `forgerwrite init` | Scaffold `.forgerwrite/` directory and config |
-| `forgerwrite doctor` | Check environment: config, git, llama.cpp |
+| `forgerwrite doctor` | Check environment: config, git, llama.cpp, RAG |
 | `forgerwrite approve <run_id>` | Review diff and approve (interactive) |
-| `forgerwrite approve --dry-run <run_id>` | View diff without approving |
 | `forgerwrite show-diff <run_id>` | Pretty-print preview diff |
 | `forgerwrite inspect <run_id>` | Print full Markdown run summary |
 | `forgerwrite restore <run_id>` | Restore git snapshot |
 | `forgerwrite abort <run_id>` | Abort: restore + write dead letter |
 | `forgerwrite gc` | Clean expired run directories |
 | `forgerwrite runs list` | List all runs |
+| `forgerwrite project status` | Show project config summary |
+| `forgerwrite build-index` | Rebuild RAG search index |
+| `forgerwrite scout <question>` | Run Scout evidence discovery |
+| `forgerwrite runs` | Manage runs (subcommands) |
+| `forgerwrite project` | Project management (subcommands) |
 | `forgerwrite project status` | Show project config summary |
 
 All commands support `--json` for machine-readable output.

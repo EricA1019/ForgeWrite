@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "forgewrite.scout_packet.v1",
+  "title": "Scout Evidence Packet",
+  "description": "Evidence gathered by Scout — RAG retrieval hits, grep evidence, and recommended files.",
+  "type": "object",
+  "required": ["schema_id", "question", "exact_evidence"],
+  "properties": {
+    "schema_id": {
+      "const": "forgewrite.scout_packet.v1"
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The original question or query that drove this scout run."
+    },
+    "retrieval_hits": {
+      "type": "array",
+      "description": "Documents retrieved from TurboVec RAG that match the question.",
+      "items": {
+        "type": "object",
+        "required": ["doc_id", "title", "snippet"],
+        "properties": {
+          "doc_id": { "type": "string" },
+          "title": { "type": "string" },
+          "snippet": { "type": "string" }
+        }
+      }
+    },
+    "exact_evidence": {
+      "type": "array",
+      "description": "Exact file:line evidence found via grep.",
+      "items": {
+        "type": "object",
+        "required": ["path", "line_start", "finding"],
+        "properties": {
+          "path": { "type": "string" },
+          "line_start": { "type": "integer", "minimum": 1 },
+          "line_end": { "type": "integer", "minimum": 1 },
+          "finding": { "type": "string" }
+        }
+      }
+    },
+    "recommended_allowed_files": {
+      "type": "array",
+      "description": "Files Scout recommends including in the slice's allowed_files.",
+      "items": { "type": "string" }
+    },
+    "recommended_reads": {
+      "type": "array",
+      "description": "File regions Scout recommends reading during context building.",
+      "items": {
+        "type": "object",
+        "required": ["path", "line_start", "line_end", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "line_start": { "type": "integer", "minimum": 1 },
+          "line_end": { "type": "integer", "minimum": 1 },
+          "reason": { "type": "string" }
+        }
+      }
+    }
+  }
+}
