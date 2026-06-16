@@ -1,4 +1,4 @@
-# ForgeWrite Documentation
+# ForgeWrite Documentation — Complete Index
 
 All documentation for the ForgeWrite MCP coding service.
 
