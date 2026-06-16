@@ -28,27 +28,21 @@ Then read this file fully before doing anything else in this session.
 **Working:**
 - 14-state SliceCoordinator pipeline (validate → context → generate → schema → semantic → preview → approve → apply → validate → repair)
 - Schema repair loop: retries on schema/semantic errors (missing fields, wrong types)
-- 12 MCP tools over stdio with stdout-to-stderr redirect to prevent protocol corruption (added fw_turbovec_health, fw_turbovec_index)
+- 12 MCP tools over stdio with stdout-to-stderr redirect (fw_turbovec_health, fw_turbovec_index)
 - 13 CLI commands (init, doctor, approve, show-diff, inspect, restore, abort, gc, runs list, project status, build-index)
-- 6 operation handlers via registry (create_file, replace_file, replace_line_range, insert_after_line, insert_before_line, delete_file)
-- 8 config sections with Pydantic validation (project, local_model, limits, validation, permissions, hygiene, repair, rag)
-- Git snapshot create/restore with TOCTOU re-check on apply
+- 6 operation handlers via registry
+- 8 config sections with Pydantic validation
+- Git snapshot create/restore with TOCTOU re-check
 - Hash-bound terminal approval with fcntl file locking
-- LlamaCppClient with json_object response format, exponential backoff retry + circuit breaker, max_tokens from config
-- Gemma 4 12B QAT (Q4_K_XL) on RTX 3060 via CUDA — ~36 tok/s, 256K context
-- RAG pipeline: DocumentPreprocessor (###/## markdown splitter), RagIndex (TurboQuantIndex + gte-modernbert-base), RagRetriever, RagPromptEnricher (~550 lines, 5 modules)
-- RAG factory functions: build_rag_enricher() (one-call from config), build_rag_index() (indexes curated KB + external repos)
-- 26 curated KB documents across 7 sections, 285 rust-cookbook + 198 rust-by-example external docs
-- Schema validation safety net: catches missing content, unknown op types, missing path, out-of-scope files
-- Centralized dead_letter writer + JSONL audit event log
-- Markdown run summary generator
-- 251 unit tests passing (Phase 0 baseline)
-- 8 stress test levels (1-6 operational, 7 schema+code repair, 8 schema validation)
-- CI pipeline (ruff, mypy, pytest, pip-audit, semgrep, trivy)
-- Async-safe coordinator entrypoint (run_async + _maybe_repair_async)
-- RAG health checks in doctor command (rag_index, sentence_transformers)
-- Naming ADR (ADR-0001: Public name is ForgeWrite)
-- **Language Adapter Seam** — LanguageAdapter Protocol with RustAdapter and PythonAdapter, adapter discovery, `--language` flag on `init`, dynamic profile resolution in coordinator
+- LlamaCppClient with retry + circuit breaker, JSON extraction from reasoning_content
+- Gemma 4 12B QAT (Q4_K_XL) on RTX 3060 via CUDA
+- RAG pipeline: 5 modules (preprocessor, index, retriever, enricher, factory)
+- 251+14 = **265 unit tests, 0 failures**
+- Async-safe coordinator (run_async + _maybe_repair_async)
+- RAG health checks in doctor
+- Naming ADR (ADR-0001)
+- **LanguageAdapter Seam** — RustAdapter + PythonAdapter, adapter discovery, `--language` flag on `init`
+- **Python Dogfood** — P1-P3, P5 complete; P4 attempted (model JSON issue); acceptance report committed
 
 **Not yet built:**
 - Full external doc index (rebuild via `forgerwrite build-index`, ~500 docs, ~2-3 min CPU)
@@ -73,7 +67,7 @@ Then read this file fully before doing anything else in this session.
 - Phase 0: Stabilize (PV1/PV2, naming, TurboVec MCP tools, RAG health in doctor) ✅
 - Phase 1: Rust MVP Acceptance (3 formal slices) — ⚠️ See `docs/acceptance/rust.md`
 - Phase 2: Language Adapter Seam (Protocol + Rust/Python adapters)
-- Phase 3: Python Dogfood (5 self-editing slices)
+- Phase 3: Python Dogfood (5 slices) — ✅ P1-P3, P5 complete; P4 LLM issue documented
 - Phase 4: Scout v1 (evidence pipeline, safe_grep, scout_packet)
 - Phase 5: Model-Assisted Scout (planner + summarizer + fallback)
 - Phase 6: Saved Work KB (knowledge entries, TurboVec-indexed, DeepSeek-curated)

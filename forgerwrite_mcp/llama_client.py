@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from typing import Any
 
@@ -26,6 +27,52 @@ _DEFAULT_CIRCUIT_BREAKER_RESET_SECONDS: float = 30.0
 
 # ── Generation defaults ────────────────────────────────────────────────────
 # Gemma 4 recommended: temperature=1.0, top_p=0.95, top_k=64
+
+# ── JSON extraction ────────────────────────────────────────────────────────
+
+# Matches JSON objects including nested braces using recursive pattern
+_JSON_NESTED_RE: re.Pattern[str] = re.compile(r"\{[^{}]*(\{[^{}]*\}[^{}]*)*\}")
+
+
+def _extract_json(text: str) -> str | None:
+    """Extract the first valid JSON object from *text*.
+
+    Tries the full text first, then falls back to extracting JSON-like
+    substrings. Handles nested braces via recursive regex. This works
+    around models that embed JSON inside chain-of-thought reasoning
+    (e.g., Gemma 4 with ``json_object`` response format).
+    """
+    text = text.strip()
+    if not text:
+        return None
+
+    # Try full text
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+
+    # Try extracting substring between first { and last }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = text[start : end + 1]
+        try:
+            json.loads(candidate)
+            return candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Try nested regex matching
+    for candidate in _JSON_NESTED_RE.finditer(text):
+        try:
+            json.loads(candidate.group())
+            return candidate.group()
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    return None
 
 _GENERATION_TEMPERATURE: float = 1.0
 _GENERATION_TOP_P: float = 0.95
@@ -94,14 +141,13 @@ class LlamaCppClient:
     ) -> str:
         """Call llama.cpp and return a JSON operation batch string.
 
-        Uses ``response_format: json_object`` to constrain the model to
-        produce valid JSON, while relying on structured prompting (system
-        prompt + RAG-enriched user prompt) for schema adherence. The
-        ``schema`` parameter is accepted for API compatibility but not
-        sent to the model — structural validation happens downstream via
-        :class:`ContractRegistry`.
+        Relies on structured prompting (system + user prompt) to steer
+        the model toward valid JSON, then extracts JSON from the response
+        using ``_extract_json()``. This avoids issues with ``json_object``
+        response format, which some models (Gemma 4) misuse by placing
+        output in ``reasoning_content`` instead of ``content``.
 
-        Retries on invalid JSON up to json_retries times.
+        Retries on extraction failure up to json_retries times.
         Raises PublicError(LOCAL_MODEL_ERROR) on failure.
         """
         if self._circuit_open:
@@ -127,7 +173,6 @@ class LlamaCppClient:
             "top_p": _GENERATION_TOP_P,
             "top_k": _GENERATION_TOP_K,
             "max_tokens": self._max_tokens,
-            "response_format": {"type": "json_object"},
         }
 
         last_error: str = ""
@@ -147,12 +192,27 @@ class LlamaCppClient:
                     )
 
                 body = response.json()
-                content = body.get("choices", [{}])[0].get("message", {}).get("content", "")
+                choice = body.get("choices", [{}])[0].get("message", {})
+                # Check both content and reasoning_content (Gemma 4 puts JSON
+                # in content even when reasoning_content is also populated).
+                raw: str = choice.get("content", "") or choice.get("reasoning_content", "") or ""
 
-                # Validate it's parseable JSON
-                json.loads(content)
-                self._consecutive_failures = 0
-                return content
+                # Use the model's own output first; fall back to JSON extraction
+                content = _extract_json(raw)
+                if content is not None:
+                    self._consecutive_failures = 0
+                    return content
+
+                # On retry, strengthen the JSON-only instruction
+                if attempt < self._json_retries:
+                    payload["messages"][0]["content"] = (
+                        system_prompt
+                        + "\n\nIMPORTANT: Your entire response must be ONLY valid JSON. "
+                        "No explanation, no thinking, no markdown formatting. "
+                        "Start with { and end with }."
+                    )
+                    await asyncio.sleep(delay)
+                    delay = min(delay * self._retry_multiplier, self._retry_max_delay)
 
             except (json.JSONDecodeError, KeyError, IndexError) as exc:
                 last_error = str(exc)
