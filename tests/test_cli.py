@@ -41,6 +41,18 @@ class TestCLIDoctor:
         # Should report something useful
         assert result.exit_code in (0, 1)
 
+    def test_doctor_rag_checks_present(self, runner: CliRunner, tmp_path: Path) -> None:
+        """doctor --json includes rag_index and sentence_transformers checks."""
+        from forgerwrite_mcp.cli import app
+
+        result = runner.invoke(app, ["doctor", "--json"], env={"FORGERWRITE_ROOT": str(tmp_path)})
+        assert result.exit_code in (0, 1)
+        import json
+
+        data = json.loads(result.stdout)
+        assert "rag_index" in data["checks"]
+        assert "sentence_transformers" in data["checks"]
+
 
 class TestCLICommandsExist:
     """Verify all CLI commands are registered."""

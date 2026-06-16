@@ -1,8 +1,9 @@
-# ForgerWrite MCP — Project State
+# ForgeWrite MCP — Project State
 
 **Date:** 2026-06-13
-**Branch:** `dev`
-**Phase:** Phase A-D complete (Gemma 4 GPU, RAG pipeline, schema repair, json_object) — ready for Phase E merge to main
+**Branch:** `main` (uncommitted Phase 0 changes)
+**Phase:** Phase 0 complete — Stabilize Core & Naming
+**Full plan:** `docs/implementation-plan.md`
 
 ---
 
@@ -74,7 +75,7 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 
 ## Test Coverage
 
-**180 tests, 0 failures** — `uv run pytest tests/ -q`
+**251 tests, 0 failures** — `uv run pytest tests/ -q`
 
 | Test Suite | Count | Focus |
 |-----------|-------|-------|
@@ -90,7 +91,7 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 | `forge/test_forge.py` | 7 | Preview diff, apply, restore, TOCTOU, scope enforcement |
 | `operations/test_*.py` | 28 | 6 handlers × 4-5 tests + registry dispatch |
 | `approval/test_approval.py` | 5 | Record creation, stale detection, TOCTOU, locking |
-| `test_coordinator.py` | 11 | State transitions, failure modes, dead letters, schema repair |
+| `test_coordinator.py` | 12 | State transitions, failure modes, dead letters, schema repair, async-safe entrypoint |
 | `test_local_model.py` | 8 | FakeBackend canned responses, failure sim, attempt logging |
 | `test_llama_client.py` | 6 | HTTP mock, JSON retry, circuit breaker, config backoff, max_tokens |
 | `context/test_build.py` | 6 | Forbidden files, per-file/total limits, SHA256, hygiene |
@@ -101,9 +102,9 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 | `rag/test_preprocessor.py` | 15 | Curated KB splitting, external doc parsing, HTML comment stripping |
 | `rag/test_index.py` | 9 | Index build, save/load, search round-trip, full pipeline |
 | `rag/test_enricher.py` | 7 | Header injection, doc retrieval, token budget, ordering |
-| `rag/test_integration.py` | 8 | build_rag_enricher factory, coordinator integration, build_rag_index |
+| `rag/test_integration.py` | 11 | build_rag_enricher factory, coordinator integration, build_rag_index, turbovec_health, turbovec_index |
 | `test_server.py` | 4 | Boot function, stdout redirect, module import |
-| `test_cli.py` | 5 | Command registration, --json flag, gitignore template |
+| `test_cli.py` | 6 | Command registration, --json flag, gitignore template, doctor RAG checks |
 
 ## Coordinator Stubs — All Replaced
 
@@ -188,10 +189,11 @@ Phase 5 (Acceptance) requires:
 
 ---
 
-## Coming Next: Phase 4 — Hardening
+## Coming Next: Phase 1 — Rust MVP Acceptance
 
-1. Dead letter & audit events
-2. Markdown summary generation
-3. Documentation (README, setup guides, config reference)
-4. CI pipeline (GitHub Actions)
-5. Config template finalization
+1. Prove the Rust pipeline with 3 formal end-to-end slices
+2. Exercise repair loop at least once
+3. Write acceptance documentation
+4. All Phase 0 PV1/PV2 bugs closed
+
+See `docs/implementation-plan.md` for full Phase 1 plan.

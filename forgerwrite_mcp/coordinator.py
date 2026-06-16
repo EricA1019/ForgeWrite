@@ -91,13 +91,19 @@ class SliceCoordinator:
         self._context_packet: dict[str, Any] = {}
 
     def run(self, handoff: dict[str, Any], slice_contract: dict[str, Any]) -> RunOutcome:
-        """Execute the full pipeline for a handoff + slice.
-
-        Returns a RunOutcome with the final status. The run artifacts
-        are written to .forgerwrite/runs/<run_id>/ regardless of outcome.
-        """
+        """Sync entrypoint. Delegates to :meth:`run_async`."""
         import asyncio
 
+        return asyncio.run(self.run_async(handoff, slice_contract))
+
+    async def run_async(
+        self, handoff: dict[str, Any], slice_contract: dict[str, Any]
+    ) -> RunOutcome:
+        """Async-safe entrypoint. Use this when called from within an event loop.
+
+        Identical logic to :meth:`run` but uses ``await`` instead of
+        ``asyncio.run()`` for async calls.
+        """
         self._run_id = generate_run_id()
         self._run_dir = init_run_dir(self._run_id, base_dir=self._repo_root)
         self._slice_id = slice_contract.get("slice_id", "unknown")
@@ -107,9 +113,7 @@ class SliceCoordinator:
             status = self._validate_contracts(handoff, slice_contract)
             status = self._build_context(handoff, slice_contract)
             # Generate + schema-validate with retry on schema/semantic errors
-            status = asyncio.run(
-                self._generate_with_schema_repair(handoff, slice_contract)
-            )
+            status = await self._generate_with_schema_repair(handoff, slice_contract)
             if status != _STATUS_OPS_SEMANTIC_VALID:
                 # Schema/semantic repair exhausted — record and exit
                 write_dead_letter(
@@ -134,7 +138,7 @@ class SliceCoordinator:
                     if status == _STATUS_VALIDATION_PASSED:
                         cleanup_snapshot(self._repo_root, self._run_id)
                     elif status == _STATUS_VALIDATION_FAILED:
-                        status = self._maybe_repair(slice_contract)
+                        status = await self._maybe_repair_async(slice_contract)
         except Exception as exc:
             write_dead_letter(self._run_dir, str(exc))
             return RunOutcome(
@@ -272,7 +276,6 @@ class SliceCoordinator:
 
     def _repair_prompt_from_schema_error(self, error: str, attempt: int) -> None:
         """Store schema error for next generation attempt."""
-        import json
 
         # Store the error so the next generate_operations call can include it
         self._schema_repair_error = error
@@ -351,9 +354,20 @@ class SliceCoordinator:
         return _STATUS_APPLIED
 
     def _validate_result(self) -> str:
+        # Resolve validation profile from the language adapter
+        profile_id = "rust_default"  # fallback
+        try:
+            from .languages import get_adapter
+
+            adapter = get_adapter(self._config.project.language)
+            if adapter is not None:
+                profile_id = adapter.get_default_profile_name()
+        except Exception:
+            pass
+
         result = run_validation_profile(
             self._repo_root,
-            "rust_default",
+            profile_id,
             self._config.validation,
             limits=self._config.limits,
         )
@@ -472,6 +486,90 @@ class SliceCoordinator:
                     validation_result = json.loads(vr_path.read_text(encoding="utf-8"))
 
         return _STATUS_VALIDATION_FAILED
+
+    async def _maybe_repair_async(self, slice_contract: dict) -> str:
+        """Async version of _maybe_repair. Uses await instead of asyncio.run."""
+        repair = RepairCoordinator(config=self._config.repair)
+
+        validation_path = self._run_dir / "validation_result.json"
+        if validation_path.exists():
+            validation_result = json.loads(validation_path.read_text(encoding="utf-8"))
+        else:
+            validation_result = {"passed": False, "commands": []}
+
+        while True:
+            result = repair.attempt(validation_result, slice_contract)
+            if result is None:
+                self._restore_apply_snapshot()
+                return _STATUS_VALIDATION_FAILED
+
+            prompt, _remaining = result
+            attempt_n = repair.attempt_count
+
+            if self._enricher is not None and self._operation_batch is not None:
+                repair_query = json.dumps(validation_result) + " " + json.dumps(
+                    self._operation_batch
+                )
+                prompt = self._enricher.enrich(
+                    base_prompt=prompt,
+                    query=repair_query,
+                    k=self._config.rag.k_documents,
+                )
+
+            write_artifact(
+                self._run_dir,
+                f"repair_prompt_{attempt_n}.txt",
+                {"prompt": prompt},
+            )
+
+            try:
+                # Use await instead of asyncio.run
+                system_prompt = (
+                    "You are a coding assistant that produces structured JSON "
+                    "operation batches.\n\n"
+                    "Respond ONLY with a JSON object matching the operation_batch schema."
+                )
+                raw = await self._backend.generate_operation_batch(
+                    system_prompt, prompt, self._operation_batch_schema
+                )
+                write_artifact(
+                    self._run_dir,
+                    f"repair_raw_{attempt_n}.txt",
+                    {"raw": raw},
+                )
+                self._operation_batch = json.loads(raw)
+                write_artifact(
+                    self._run_dir,
+                    f"operation_batch_repair_{attempt_n}.json",
+                    self._operation_batch,
+                )
+            except Exception as exc:
+                write_dead_letter(
+                    self._run_dir,
+                    f"Repair attempt {attempt_n} failed: {exc}",
+                )
+                continue
+
+            try:
+                self._contract_registry.validate(
+                    "operation_batch.v1.json", self._operation_batch
+                )
+                validator = default_validator()
+                validator.validate(
+                    self._operation_batch,
+                    slice_contract,
+                    limits=self._config.limits,
+                    permissions=self._config.permissions,
+                )
+            except Exception:
+                continue
+
+            self._preview(slice_contract)
+            self._apply(slice_contract)
+            status = self._validate_result()
+            if status == _STATUS_VALIDATION_PASSED:
+                cleanup_snapshot(self._repo_root, self._run_id)
+                return _STATUS_VALIDATION_PASSED
 
     def _restore_apply_snapshot(self) -> None:
         """Restore the apply snapshot if it exists. No-op on failure."""

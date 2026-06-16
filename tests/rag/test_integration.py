@@ -381,3 +381,158 @@ Content of document two.
 
         # Should not crash, but also may produce an empty index
         assert index is not None
+
+
+class TestTurbovecHealthTool:
+    """Tests for fw_turbovec_health MCP tool."""
+
+    def test_health_reports_index_not_found_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When RAG index doesn't exist, health reports healthy=False."""
+        import json
+        from pathlib import Path as _Path
+
+        # Point CWD to tmp_path so .forgerwrite/forgerwrite.toml doesn't interfere
+        monkeypatch.chdir(tmp_path)
+
+        # Create minimal config with rag enabled but index pointing nowhere
+        config_dir = tmp_path / ".forgerwrite"
+        config_dir.mkdir()
+        config_file = config_dir / "forgerwrite.toml"
+        config_file.write_text("""\
+[project]
+name = "test"
+language = "rust"
+repo_root = "."
+
+[local_model]
+endpoint = "http://127.0.0.1:8080/v1"
+model = "test"
+
+[validation]
+commands = {}
+profiles = {}
+
+[permissions]
+
+[hygiene]
+
+[repair]
+
+[rag]
+enabled = true
+index_path = "nonexistent.tqi"
+""")
+
+        # Import the tool function
+        from forgerwrite_mcp.server import fw_turbovec_health
+
+        # We need to run the async tool. Use asyncio.run.
+        import asyncio
+
+        result = asyncio.run(fw_turbovec_health())
+        assert result["ok"] is True
+        assert result["healthy"] is False
+        assert "not found" in result["reason"].lower()
+
+    def test_health_reports_healthy_when_index_exists(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When RAG index exists, health reports healthy=True with doc count."""
+        import asyncio
+        from pathlib import Path as _Path
+
+        # Build a small index in tmp_path using ProcessedDoc directly
+        from forgerwrite_mcp.rag.preprocessor import ProcessedDoc
+        from forgerwrite_mcp.rag.index import RagIndex
+
+        docs = [
+            ProcessedDoc(
+                doc_id="test-doc",
+                title="Test Doc",
+                content="Some knowledge content.",
+            ),
+        ]
+
+        index_path = tmp_path / "test_index.tqi"
+        index = RagIndex(dim=768, bit_width=4)
+        index.build(docs)
+        index.save(str(index_path))
+
+        # Create config pointing to this index
+        config_dir = tmp_path / ".forgerwrite"
+        config_dir.mkdir(exist_ok=True)
+        config_file = config_dir / "forgerwrite.toml"
+        config_file.write_text(f"""\
+[project]
+name = "test"
+language = "rust"
+repo_root = "."
+
+[local_model]
+endpoint = "http://127.0.0.1:8080/v1"
+model = "test"
+
+[validation]
+commands = {{}}
+profiles = {{}}
+
+[permissions]
+
+[hygiene]
+
+[repair]
+
+[rag]
+enabled = true
+index_path = "{index_path.relative_to(tmp_path)}"
+""")
+
+        monkeypatch.chdir(tmp_path)
+
+        from forgerwrite_mcp.server import fw_turbovec_health
+
+        result = asyncio.run(fw_turbovec_health())
+        assert result["ok"] is True
+        assert result["healthy"] is True
+        assert result["file_size_bytes"] > 0
+
+
+class TestTurbovecIndexTool:
+    """Tests for fw_turbovec_index MCP tool."""
+
+    def test_index_builds_and_returns_doc_count(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """fw_turbovec_index builds an index and reports document count."""
+        import asyncio
+
+        # Create a mini KB directory with a curated markdown file
+        kb_dir = tmp_path / "kb"
+        kb_dir.mkdir()
+        kb_file = kb_dir / "rust-knowledge-base.md"
+        kb_file.write_text("""\
+# Test KB
+
+<!-- RAG-ID: doc-1 -->
+### Doc One
+Content of first document.
+
+<!-- RAG-ID: doc-2 -->
+### Doc Two
+Content of second document.
+""")
+
+        idx_path = tmp_path / "index.tqi"
+        monkeypatch.chdir(tmp_path)
+
+        from forgerwrite_mcp.server import fw_turbovec_index
+
+        result = asyncio.run(fw_turbovec_index(
+            kb_dir=str(kb_dir),
+            index_path=str(idx_path),
+        ))
+        assert result["ok"] is True
+        assert result["indexed"] >= 1
+        assert idx_path.exists()

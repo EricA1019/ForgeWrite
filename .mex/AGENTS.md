@@ -4,7 +4,7 @@ description: Always-loaded project anchor. Read this first. Contains project ide
 last_updated: 2026-06-07
 ---
 
-# ForgerWrite MCP
+# ForgeWrite MCP
 
 ## What This Is
 A local-first MCP coding service that delegates narrow file edit slices to a local LLM (llama.cpp + OmniCoder 9B) with hard safety rails — preview, hash-bound approval, TOCTOU guards, and bounded repair.

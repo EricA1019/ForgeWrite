@@ -18,6 +18,8 @@ _CHECK_CONFIG_EXISTS: str = "config_exists"
 _CHECK_GIT_REPO: str = "git_repo"
 _CHECK_RUST_TOOLCHAIN: str = "rust_toolchain"
 _CHECK_LLAMA_REACHABLE: str = "llama_cpp_reachable"
+_CHECK_RAG_INDEX: str = "rag_index"
+_CHECK_SENTENCE_TRANSFORMERS: str = "sentence_transformers"
 
 # Timeout for llama.cpp health probe (seconds)
 _LLAMA_HEALTH_TIMEOUT: float = 3.0
@@ -83,5 +85,28 @@ def run_doctor_checks(root: Path) -> dict[str, bool]:
         except Exception:
             pass
     checks[_CHECK_LLAMA_REACHABLE] = llama_ok
+
+    # RAG index check
+    rag_ok = False
+    if config_path.exists():
+        try:
+            cfg = tomllib.loads(config_path.read_text(encoding="utf-8"))
+            rag_enabled: bool = cfg.get("rag", {}).get("enabled", False)
+            if rag_enabled:
+                index_path_str: str = cfg.get("rag", {}).get("index_path", "data/rag/index.tqi")
+                rag_index_path = root / index_path_str
+                rag_ok = rag_index_path.exists()
+        except Exception:
+            pass
+    checks[_CHECK_RAG_INDEX] = rag_ok
+
+    # sentence_transformers check
+    st_ok = False
+    try:
+        import sentence_transformers  # noqa: F401
+        st_ok = True
+    except ImportError:
+        pass
+    checks[_CHECK_SENTENCE_TRANSFORMERS] = st_ok
 
     return checks

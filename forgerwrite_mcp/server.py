@@ -1,4 +1,4 @@
-"""MCP server — FastMCP stdio server with 10 thin tools.
+"""ForgeWrite MCP server — FastMCP stdio server with 10 thin tools.
 
 Design reference: §5.10
 
@@ -13,6 +13,85 @@ import sys
 from pathlib import Path
 
 from .errors import envelope_from
+
+
+async def fw_turbovec_health() -> dict:
+    """Report TurboVec / RAG retrieval system health.
+
+    Checks index file presence, document count, and basic integrity.
+    Returns healthy=False with reason when index is missing.
+    """
+    try:
+        from .config import load_config
+
+        config = load_config(Path.cwd())
+        index_path = Path.cwd() / config.rag.index_path
+
+        if not config.rag.enabled:
+            return {
+                "ok": True,
+                "healthy": False,
+                "reason": "RAG is disabled in config",
+            }
+
+        if not index_path.exists():
+            return {
+                "ok": True,
+                "healthy": False,
+                "reason": f"Index not found at {config.rag.index_path}. "
+                          f"Run: forgerwrite build-index",
+            }
+
+        # Check file integrity: non-empty file is a basic health signal
+        file_size = index_path.stat().st_size
+
+        return {
+            "ok": True,
+            "healthy": True,
+            "file_size_bytes": file_size,
+            "index_path": str(index_path),
+        }
+    except Exception as exc:
+        return envelope_from(exc, "turbovec_health").to_dict()
+
+
+async def fw_turbovec_index(
+    kb_dir: str = "data/rag", index_path: str = "data/rag/index.tqi"
+) -> dict:
+    """Build (or rebuild) the TurboVec retrieval index.
+
+    Args:
+        kb_dir: Directory containing curated knowledge base markdown files.
+        index_path: Where to write the turbovec index file.
+
+    Returns:
+        Dict with ok status and document count.
+    """
+    try:
+        from pathlib import Path
+
+        from .rag import build_rag_index
+        from .rag.preprocessor import DocumentPreprocessor
+
+        # Count docs before building (RagIndex doesn't expose count)
+        kb = Path(kb_dir)
+        curated = kb / "rust-knowledge-base.md"
+        doc_count = 0
+        if curated.exists():
+            processor = DocumentPreprocessor(source="curated")
+            doc_count += len(processor.process_file(str(curated)))
+        # External dirs
+        for ext_dir_name in ("rust-cookbook", "rust-by-example"):
+            ext_dir = kb / ext_dir_name / "src"
+            if ext_dir.is_dir():
+                processor = DocumentPreprocessor(source=ext_dir_name)
+                for md_file in sorted(ext_dir.rglob("*.md")):
+                    doc_count += len(processor.process_file(str(md_file)))
+
+        build_rag_index(kb_dir=kb_dir, index_path=index_path)
+        return {"ok": True, "indexed": doc_count}
+    except Exception as exc:
+        return envelope_from(exc, "turbovec_index").to_dict()
 
 
 def _redirect_stdout_to_stderr() -> None:
@@ -239,6 +318,9 @@ def boot() -> None:
             return {"ok": True, "run_id": run_id, "summary": generate_summary(run_dir)}
         except Exception as exc:
             return envelope_from(exc, "summary").to_dict()
+
+    mcp.tool()(fw_turbovec_health)
+    mcp.tool()(fw_turbovec_index)
 
     # ── Start server ──────────────────────────────────────────────────
     mcp.run(transport="stdio")

@@ -19,7 +19,7 @@ from rich.syntax import Syntax
 
 app = typer.Typer(
     name="forgerwrite",
-    help="Local-first MCP coding service CLI.",
+    help="ForgeWrite — local-first MCP coding service CLI.",
 )
 console = Console()
 
@@ -31,10 +31,43 @@ _GITIGNORE_TEMPLATE: str = """\
 .forgerwrite/secrets.json
 """
 
-_CONFIG_TEMPLATE: str = """\
+# ── Config template builder ─────────────────────────────────────────────────
+
+
+def _render_config(language: str) -> str:
+    """Render a forgerwrite.toml config for the given *language*.
+
+    The ``[validation.commands]`` and ``[validation.profiles]`` sections
+    are populated from the language adapter.
+    """
+    from .languages import get_adapter
+
+    adapter = get_adapter(language)
+    if adapter is None:
+        available = ", ".join(sorted(list_adapters()))
+        raise ValueError(
+            f"Unsupported language '{language}'. "
+            f"Available: {available}"
+        )
+
+    commands = adapter.get_validation_commands()
+    profiles = adapter.get_profiles()
+
+    # Build TOML for validation commands
+    cmd_lines = "\n".join(
+        f'{cmd_id} = "{cmd_str}"' for cmd_id, cmd_str in commands.items()
+    )
+
+    # Build TOML for validation profiles
+    profile_lines = "\n".join(
+        f'{profile_id} = [{", ".join(repr(c) for c in cmds)}]'
+        for profile_id, cmds in profiles.items()
+    )
+
+    return f"""\
 [project]
 name = "my-project"
-language = "rust"
+language = "{language}"
 repo_root = "."
 
 [local_model]
@@ -64,13 +97,10 @@ default_timeout_seconds = 300
 graceful_kill_timeout_seconds = 5
 
 [validation.commands]
-fmt = "cargo fmt -- --check"
-check = "cargo check"
-test = "cargo test"
-clippy = "cargo clippy --all-targets --all-features -- -D warnings"
+{cmd_lines}
 
 [validation.profiles]
-rust_default = ["fmt", "check", "test", "clippy"]
+{profile_lines}
 
 [permissions]
 require_clean_worktree = true
@@ -97,6 +127,13 @@ max_rag_tokens = 2048
 """
 
 
+def list_adapters() -> list[str]:
+    """Return list of supported language identifiers (re-export for CLI)."""
+    from .languages import list_adapters as _list
+
+    return _list()
+
+
 def _get_root() -> Path:
     """Get the project root from env or cwd."""
     env_root = os.environ.get("FORGERWRITE_ROOT")
@@ -118,6 +155,9 @@ def _json_out(data: dict, json_flag: bool) -> None:
 
 @app.command()
 def init(
+    language: str = typer.Option(
+        "rust", "--language", "-l", help="Project language.", show_default=True
+    ),
     json_flag: bool = typer.Option(False, "--json", help="Output as JSON."),
     skip_doctor: bool = typer.Option(
         False, "--skip-doctor", help="Skip environment checks."
@@ -141,7 +181,8 @@ def init(
 
     config_path = fw_dir / "forgerwrite.toml"
     if not config_path.exists():
-        config_path.write_text(_CONFIG_TEMPLATE)
+        config_text = _render_config(language)
+        config_path.write_text(config_text)
 
     gitignore = root / ".gitignore"
     existing = gitignore.read_text() if gitignore.exists() else ""

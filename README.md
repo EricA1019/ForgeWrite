@@ -1,8 +1,8 @@
-# ForgerWrite MCP
+# ForgeWrite MCP
 
 **Local-first MCP coding service with hard safety rails.**
 
-ForgerWrite delegates narrow, well-scoped file edits to a local coding model (llama.cpp + OmniCoder 9B) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree. Includes RAG (Retrieval-Augmented Generation) with semantic search over a curated Rust knowledge base to improve model output quality.
+ForgeWrite delegates narrow, well-scoped file edits to a local coding model (llama.cpp + OmniCoder 9B) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree. Includes RAG (Retrieval-Augmented Generation) with semantic search over a curated Rust knowledge base to improve model output quality.
 
 ---
 
@@ -35,7 +35,7 @@ uv run forgerwrite-mcp
 
 ```mermaid
 flowchart LR
-    Cloud["Cloud Orchestrator\n(Claude/GPT)"] -->|MCP tool call| Server["ForgerWrite MCP Server\n(local, stdio)"]
+    Cloud["Cloud Orchestrator\n(Claude/GPT)"] -->|MCP tool call| Server["ForgeWrite MCP Server\n(local, stdio)"]
     Server --> Context["Context Builder\nallowed files only"]
     Context --> Model["Local Model\n(llama.cpp + OmniCoder)"]
     Model --> Ops["JSON Operation Batch\n{create,replace,delete}"]
@@ -47,7 +47,7 @@ flowchart LR
 ```
 
 1. The **cloud orchestrator** plans a slice and sends it via MCP.
-2. ForgerWrite builds a **context packet** from only the allowed files.
+2. ForgeWrite builds a **context packet** from only the allowed files.
 3. The **local model** generates a JSON operation batch (create, replace, delete, insert).
 4. Operations are **schema-validated**, then **semantically checked** (scope, size, forbidden targets).
 5. A **git snapshot** is created and operations are applied to generate a preview diff.

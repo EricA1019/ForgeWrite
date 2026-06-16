@@ -358,3 +358,35 @@ class TestSliceCoordinator:
         prompt, _remaining = result
         assert len(prompt) > 0
         assert repair.attempt_count == 1
+
+    def test_run_in_async_context_succeeds(
+        self, coordinator: object, tmp_path: Path
+    ) -> None:
+        """run_async() works when called from inside an async event loop.
+
+        PV2: asyncio.run() fails with RuntimeError when an event loop is
+        already running. run_async() is the async-safe entrypoint that MCP
+        tools should call directly.
+        """
+        import asyncio
+        from forgerwrite_mcp.coordinator import SliceCoordinator
+
+        coord: SliceCoordinator = coordinator  # type: ignore[assignment]
+
+        handoff = {
+            "schema_id": "forgerwrite.handoff.v1",
+            "project": "test",
+            "language": "rust",
+        }
+        slice_contract = {
+            "schema_id": "forgerwrite.slice.v1",
+            "slice_id": "test-slice",
+            "allowed_files": ["src/generated.rs"],
+        }
+
+        async def call_run_async() -> object:
+            return await coord.run_async(handoff, slice_contract)
+
+        # This MUST NOT raise RuntimeError("asyncio.run() cannot be called from a running event loop")
+        outcome = asyncio.run(call_run_async())
+        assert outcome.run_dir is not None

@@ -28,7 +28,7 @@ Then read this file fully before doing anything else in this session.
 **Working:**
 - 14-state SliceCoordinator pipeline (validate → context → generate → schema → semantic → preview → approve → apply → validate → repair)
 - Schema repair loop: retries on schema/semantic errors (missing fields, wrong types)
-- 10 MCP tools over stdio with stdout-to-stderr redirect to prevent protocol corruption
+- 12 MCP tools over stdio with stdout-to-stderr redirect to prevent protocol corruption (added fw_turbovec_health, fw_turbovec_index)
 - 13 CLI commands (init, doctor, approve, show-diff, inspect, restore, abort, gc, runs list, project status, build-index)
 - 6 operation handlers via registry (create_file, replace_file, replace_line_range, insert_after_line, insert_before_line, delete_file)
 - 8 config sections with Pydantic validation (project, local_model, limits, validation, permissions, hygiene, repair, rag)
@@ -42,9 +42,17 @@ Then read this file fully before doing anything else in this session.
 - Schema validation safety net: catches missing content, unknown op types, missing path, out-of-scope files
 - Centralized dead_letter writer + JSONL audit event log
 - Markdown run summary generator
-- 246 unit tests, 0 failures
+- 251 unit tests passing (Phase 0 baseline)
 - 8 stress test levels (1-6 operational, 7 schema+code repair, 8 schema validation)
 - CI pipeline (ruff, mypy, pytest, pip-audit, semgrep, trivy)
+- Async-safe coordinator entrypoint (run_async + _maybe_repair_async)
+- RAG health checks in doctor command (rag_index, sentence_transformers)
+- Naming ADR (ADR-0001: Public name is ForgeWrite)
+- **Language Adapter Seam** — LanguageAdapter Protocol with RustAdapter and PythonAdapter, adapter discovery, `--language` flag on `init`, dynamic profile resolution in coordinator
+
+**Not yet built:**
+- Full external doc index (rebuild via `forgerwrite build-index`, ~500 docs, ~2-3 min CPU)
+- Production deployment / persistent hosting
 
 **Not yet built:**
 - Full external doc index (rebuild via `forgerwrite build-index`, ~500 docs, ~2-3 min CPU)
@@ -52,6 +60,25 @@ Then read this file fully before doing anything else in this session.
 
 **Known issues:**
 - Gemma 4 12B Q4 produces valid JSON with json_object but may still omit fields on first attempt; schema repair loop retries
+
+**Resolved debt:**
+- PV1: ✅ Verified — `test_permission_rule_reads_config_*` (2 tests pass)
+- PV2: ✅ Fixed — added `run_async()` + `_maybe_repair_async()`, `run()` delegates via `asyncio.run()`
+
+**Known debt (deferred to Phase 3):**
+- RAG enrichment duplicated in server tool (`fw_generate_operations_local`) and coordinator — two code paths
+
+**Implementation plan:** `docs/implementation-plan.md` (design reference)
+**Handoff (DeepSeek Flash):** `docs/handoff/phase-0-handoff.md` (copy-paste executable tasks)
+- Phase 0: Stabilize (PV1/PV2, naming, TurboVec MCP tools, RAG health in doctor) ✅
+- Phase 1: Rust MVP Acceptance (3 formal slices) — ⚠️ See `docs/acceptance/rust.md`
+- Phase 2: Language Adapter Seam (Protocol + Rust/Python adapters)
+- Phase 3: Python Dogfood (5 self-editing slices)
+- Phase 4: Scout v1 (evidence pipeline, safe_grep, scout_packet)
+- Phase 5: Model-Assisted Scout (planner + summarizer + fallback)
+- Phase 6: Saved Work KB (knowledge entries, TurboVec-indexed, DeepSeek-curated)
+- Phase 7: Integrations + RC (MEX/Graphify/Headroom adapters, docs, release tag)
+- Phase 8+ (deferred): Third language, package rename, production hosting
 
 ## Routing Table
 

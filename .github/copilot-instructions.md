@@ -4,13 +4,11 @@ description: Always-loaded project anchor. Read this first. Contains project ide
 last_updated: [YYYY-MM-DD]
 ---
 
-# [Project Name]
+# ForgeWrite
 
 ## What This Is
-<!-- One sentence. What does this project do?
-     Length: 1 sentence maximum.
-     Not a tagline — a factual description of what the software does.
-     Example: "A REST API for managing inventory across multiple warehouse locations." -->
+A local-first MCP coding service that delegates narrow file edit slices to a local LLM with hard safety rails.
+
 
 ## Non-Negotiables
 <!-- Hard rules the agent must never violate. Not preferences — rules.
