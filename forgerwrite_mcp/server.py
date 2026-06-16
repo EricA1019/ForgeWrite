@@ -510,19 +510,33 @@ def boot() -> None:
             return envelope_from(exc, "validate_ops").to_dict()
 
     @mcp.tool()
-    async def fw_preview_operations(operation_batch: dict, slice_contract: dict) -> dict:
-        """Produce a preview diff."""
+    async def fw_preview_operations(
+        operation_batch: dict,
+        slice_contract: dict,
+        run_id: str = "preview",
+    ) -> dict:
+        """Produce a preview diff and write an approval record.
+
+        Args:
+            operation_batch: The operations to preview.
+            slice_contract: The slice contract for scope validation.
+            run_id: Run identifier (default "preview"). Use a unique ID
+                   for parallel operations.
+        """
         try:
+            from .approval import write_approval_record
             from .forge.forge import preview_operations
             from .operations.registry import default_registry
 
             result = preview_operations(
                 Path.cwd(),
-                "preview",
+                run_id,
                 operation_batch,
                 slice_contract,
                 default_registry(),
             )
+            run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
+            write_approval_record(run_dir)
             return {
                 "ok": True,
                 "diff_sha256": result.diff_sha256,
@@ -533,16 +547,33 @@ def boot() -> None:
 
     @mcp.tool()
     async def fw_apply_approved_operations(
-        operation_batch: dict, slice_contract: dict, run_id: str
+        operation_batch: dict, slice_contract: dict,
+        run_id: str = "preview",
+        auto_validate: bool = False,
     ) -> dict:
-        """Apply approved operations."""
+        """Apply approved operations with full lifecycle.
+
+        Verifies approval, applies operations, writes audit event,
+        cleans up snapshot, and optionally runs validation.
+
+        Args:
+            operation_batch: The operations to apply.
+            slice_contract: The slice contract for scope validation.
+            run_id: Run identifier (default "preview"). Must match the
+                   run_id used in fw_preview_operations.
+            auto_validate: If True, run validation profile after apply.
+        """
         try:
             from .approval import assert_approved
+            from .audit import write_audit_event
+            from .dead_letter import write_dead_letter
             from .forge.forge import apply_approved_operations
+            from .forge.git_utils import cleanup_snapshot
             from .operations.registry import default_registry
 
             run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
             approval = assert_approved(run_dir, Path.cwd())
+
             result = apply_approved_operations(
                 Path.cwd(),
                 run_id,
@@ -551,8 +582,35 @@ def boot() -> None:
                 approval,
                 default_registry(),
             )
-            return {"ok": True, "changed": len(result.changed)}
+
+            write_audit_event(run_dir, "apply", {"run_id": run_id, "changed": len(result.changed)})
+            cleanup_snapshot(Path.cwd(), run_id)
+
+            response: dict = {"ok": True, "changed": len(result.changed)}
+
+            if auto_validate:
+                try:
+                    from .config import load_config
+                    from .validation.runner import run_validation_profile
+
+                    config = load_config(Path.cwd())
+                    vr = run_validation_profile(
+                        Path.cwd(),
+                        "python_default",
+                        config.validation,
+                        limits=config.limits,
+                    )
+                    response["validation_passed"] = vr["passed"]
+                except Exception as ve:
+                    response["validation_passed"] = False
+                    response["validation_error"] = str(ve)
+
+            return response
         except Exception as exc:
+            from .dead_letter import write_dead_letter
+
+            run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
+            write_dead_letter(run_dir, f"Apply failed: {exc}")
             return envelope_from(exc, "apply").to_dict()
 
     @mcp.tool()
