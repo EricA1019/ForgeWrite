@@ -57,40 +57,33 @@ async def fw_turbovec_health() -> dict:
 
 
 async def fw_turbovec_index(
-    kb_dir: str = "data/rag", index_path: str = "data/rag/index.tqi"
+    kb_dir: str = "data/rag",
+    index_path: str = "data/rag/index.tqi",
 ) -> dict:
     """Build (or rebuild) the TurboVec retrieval index.
 
-    Args:
-        kb_dir: Directory containing curated knowledge base markdown files.
-        index_path: Where to write the turbovec index file.
+    Processes all markdown knowledge base files in kb_dir, embeds them
+    with gte-modernbert-base, and writes a TurboQuantIndex to index_path.
 
-    Returns:
-        Dict with ok status and document count.
+    NOTE: Index building is CPU-bound (sentence-transformers). This tool
+    offloads to a thread pool to prevent blocking the async event loop.
     """
     try:
-        from pathlib import Path
+        import asyncio
 
         from .rag import build_rag_index
-        from .rag.preprocessor import DocumentPreprocessor
 
-        # Count docs before building (RagIndex doesn't expose count)
-        kb = Path(kb_dir)
-        curated = kb / "rust-knowledge-base.md"
-        doc_count = 0
-        if curated.exists():
-            processor = DocumentPreprocessor(source="curated")
-            doc_count += len(processor.process_file(str(curated)))
-        # External dirs
-        for ext_dir_name in ("rust-cookbook", "rust-by-example"):
-            ext_dir = kb / ext_dir_name / "src"
-            if ext_dir.is_dir():
-                processor = DocumentPreprocessor(source=ext_dir_name)
-                for md_file in sorted(ext_dir.rglob("*.md")):
-                    doc_count += len(processor.process_file(str(md_file)))
-
-        build_rag_index(kb_dir=kb_dir, index_path=index_path)
-        return {"ok": True, "indexed": doc_count}
+        index = await asyncio.to_thread(
+            build_rag_index,
+            kb_dir=kb_dir,
+            index_path=index_path,
+        )
+        doc_count = len(index.documents) if index.documents else 0
+        return {
+            "ok": True,
+            "indexed": doc_count,
+            "index_path": index_path,
+        }
     except Exception as exc:
         return envelope_from(exc, "turbovec_index").to_dict()
 

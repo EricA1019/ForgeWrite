@@ -1,0 +1,29 @@
+{
+  "schema_id": "forgewrite.knowledge_entry.v1",
+  "id": "test1-isolated-run-id",
+  "title": "Isolated Run ID Pattern",
+  "description": "Use unique run_id parameter to prevent stale approval errors in parallel operation batches.",
+  "tags": [
+    "forgewrite",
+    "mcp",
+    "run_id",
+    "parallel"
+  ],
+  "language": "all",
+  "source_run_id": "test1-promote",
+  "problem_statement": "Multiple preview\u2192apply cycles collide when sharing the same run_id, causing stale approval errors.",
+  "operations": [
+    {
+      "op": "create_file",
+      "path": "docs/patterns/isolated-run-id.md",
+      "content": "# Isolated Run ID Pattern\n\nUse unique run_id for parallel operations.\n"
+    }
+  ],
+  "validation_summary": {
+    "passed": true,
+    "commands_run": []
+  },
+  "status": "active",
+  "created_at": "2026-06-16T20:42:00",
+  "curator_notes": "Created during D-Fix validation test."
+}
