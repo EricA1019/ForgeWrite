@@ -1,7 +1,7 @@
 """Token usage tracker — records local model token consumption.
 
 Appends JSONL records to ``.forgerwrite/token_usage.jsonl``. Provides
-statistics and estimated cloud cost savings (Claude, GPT-4o).
+statistics and estimated cloud cost savings (DeepSeek, Claude, GPT-4o).
 """
 
 from __future__ import annotations
@@ -17,6 +17,11 @@ _TRACKER_FILE = "token_usage.jsonl"
 
 # Cloud pricing per million tokens (USD, as of 2026-06)
 _CLOUD_PRICES: dict[str, dict[str, float]] = {
+    "deepseek": {
+        "input_per_m": 0.14,
+        "output_per_m": 0.28,
+        "label": "DeepSeek",
+    },
     "claude": {
         "input_per_m": 3.00,
         "output_per_m": 15.00,

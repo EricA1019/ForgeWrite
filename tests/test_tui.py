@@ -27,6 +27,7 @@ class TestRenderTokens:
             "stress-model-2": {"calls": 42, "input_tokens": 17220, "output_tokens": 8610, "total_tokens": 25830},
         },
         "estimated_savings": {
+            "deepseek": {"label": "DeepSeek", "input_cost": 0.0074, "output_cost": 0.0074, "total": 0.0148},
             "claude": {"label": "Claude 3.5 Sonnet", "input_cost": 0.1585, "output_cost": 0.3941, "total": 0.5526},
             "gpt4o": {"label": "GPT-4o", "input_cost": 0.132, "output_cost": 0.2627, "total": 0.3948},
         },
@@ -40,6 +41,7 @@ class TestRenderTokens:
         "by_purpose": {},
         "by_model": {},
         "estimated_savings": {
+            "deepseek": {"label": "DeepSeek", "input_cost": 0.0, "output_cost": 0.0, "total": 0.0},
             "claude": {"label": "Claude 3.5 Sonnet", "input_cost": 0.0, "output_cost": 0.0, "total": 0.0},
             "gpt4o": {"label": "GPT-4o", "input_cost": 0.0, "output_cost": 0.0, "total": 0.0},
         },
@@ -87,6 +89,8 @@ class TestRenderTokens:
         from forgerwrite_mcp.tui import ForgerwriteTUI
 
         result = ForgerwriteTUI._render_tokens(self._FIXTURE)
+        assert "DeepSeek" in result
+        assert "0.0148" in result
         assert "Claude 3.5 Sonnet" in result
         assert "0.5526" in result
         assert "GPT-4o" in result

@@ -233,7 +233,7 @@ class ForgerwriteTUI(App):
         # Cloud equivalent cost (what the same tokens would cost on cloud APIs)
         lines.append("")
         lines.append("\U00002601 Cloud equivalent cost:")
-        for key in ("claude", "gpt4o"):
+        for key in ("deepseek", "claude", "gpt4o"):
             s = stats["estimated_savings"][key]
             inp_cost = s.get("input_cost", 0)
             out_cost = s.get("output_cost", 0)
