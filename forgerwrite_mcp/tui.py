@@ -130,6 +130,9 @@ class ForgerwriteTUI(App):
     #token-title  { text-style: bold; color: $primary; }
     #run-title    { text-style: bold; color: $accent; }
     #info-title   { text-style: bold; color: $success; }
+    #token-content { overflow-y: auto; height: 1fr; }
+    #run-content   { overflow-y: auto; height: 1fr; }
+    #info-content  { overflow-y: auto; height: 1fr; }
     """
 
     TITLE = "ForgeWrite Dashboard"
