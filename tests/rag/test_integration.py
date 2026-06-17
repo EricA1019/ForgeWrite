@@ -534,5 +534,8 @@ Content of second document.
             index_path=str(idx_path),
         ))
         assert result["ok"] is True
-        assert result["indexed"] >= 1
+        assert result["started"] is True
+        # Background indexing may still be running; wait briefly then check
+        import time
+        time.sleep(0.5)
         assert idx_path.exists()

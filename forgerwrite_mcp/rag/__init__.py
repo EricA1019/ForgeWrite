@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from .enricher import RagPromptEnricher
-from .index import RagIndex
+from .index import RagIndex, _get_embedding_model
 from .preprocessor import DocumentPreprocessor, ProcessedDoc
 from .retriever import RagDocument, RagRetriever
 
@@ -59,8 +59,6 @@ def build_rag_enricher(
     index_path = root / config.rag.index_path
     if not index_path.exists():
         return None
-
-from .index import _get_embedding_model
 
     kb_path = root / "data" / "rag" / "rust-knowledge-base.md"
     if kb_path.exists():

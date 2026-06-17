@@ -35,11 +35,21 @@ def _get_run_summary() -> list[dict]:
             if run_json.exists():
                 try:
                     data = _json.loads(run_json.read_text())
+                    # Load dead letter for error detail
+                    error = ""
+                    dead_letter = run_dir / "dead_letter.json"
+                    if dead_letter.exists():
+                        try:
+                            dl = _json.loads(dead_letter.read_text())
+                            error = dl.get("reason", "")[:60]
+                        except Exception:
+                            pass
                     results.append({
                         "run_id": data.get("run_id", run_dir.name),
                         "status": data.get("status", "unknown"),
                         "slice_id": data.get("slice_id", ""),
                         "created_at": data.get("created_at", ""),
+                        "error": error,
                     })
                 except Exception:
                     pass
@@ -83,10 +93,15 @@ def _get_model_health() -> dict:
 _STATUS_EMOJI: dict[str, str] = {
     "validation_passed": "✅",
     "applied": "✅",
+    "passed": "✅",
     "draft": "📝",
     "context_ready": "📦",
     "validation_failed": "❌",
+    "failed": "❌",
     "repairing": "🔧",
+    "approved": "👍",
+    "preview_ready": "👁️",
+    "aborted": "🚫",
 }
 
 
@@ -169,7 +184,7 @@ class ForgerwriteTUI(App):
         lines = [
             f"Total calls:  {stats['total_calls']}",
             f"Input tokens: {stats['total_input_tokens']:,}",
-            f"Output tokns: {stats['total_output_tokens']:,}",
+            f"Output tokens: {stats['total_output_tokens']:,}",
             f"Total tokens: {stats['total_tokens']:,}",
             "",
             "\U0001f4b0 Saved vs cloud:",
@@ -209,7 +224,15 @@ class ForgerwriteTUI(App):
         sys_status: list[tuple[str, bool, str]],
         model_health: dict,
     ) -> str:
+        # Model health vars used multiple times below
+        model_ok = model_health.get("healthy", False)
+        model_emoji = "\u2705" if model_ok else "\u274c"
+        model_name = model_health.get("model_name", "unknown")[:30]
+        model_err = model_health.get("error", "")
+
         lines = [
+            f"Model: {model_emoji} {model_name}",
+            "",
             f"\U0001f4da KB: {kb['active']} active, {kb['deprecated']} deprecated "
             f"({kb['total']} total)",
             "",
@@ -220,12 +243,6 @@ class ForgerwriteTUI(App):
             detail = "" if avail else f" \u2014 {reason[:40]}"
             lines.append(f"  {emoji} {name}{detail}")
 
-        # Model health
-        model_ok = model_health.get("healthy", False)
-        model_emoji = "\u2705" if model_ok else "\u274c"
-        model_name = model_health.get("model_name", "unknown")[:30]
-        model_err = model_health.get("error", "")
-        lines.append(f"  {model_emoji} LLM: {model_name}")
         if not model_ok and model_err:
             lines.append(f"     \u26a0\ufe0f {model_err[:50]}")
 

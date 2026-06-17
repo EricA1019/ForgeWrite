@@ -36,9 +36,9 @@ class KnowledgeIndexer:
 
     def _ensure_model(self) -> object:
         if self._model is None:
-from forgerwrite_mcp.rag.index import _get_embedding_model
+            from forgerwrite_mcp.rag.index import _get_embedding_model
 
-        self._model = _get_embedding_model(_EMBEDDING_MODEL)
+            self._model = _get_embedding_model(_EMBEDDING_MODEL)
         return self._model
 
     # ── Public API ──────────────────────────────────────────────────────────

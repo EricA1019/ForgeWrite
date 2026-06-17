@@ -102,6 +102,14 @@ async def fw_turbovec_index(
         }
     except Exception as exc:
         return envelope_from(exc, "turbovec_index").to_dict()
+
+
+async def fw_scout(
+    question: str,
+    allowed_files: list[str] | None = None,
+    use_model_planner: bool = False,
+    max_results: int = 20,
+) -> dict:
     """Run the Scout evidence pipeline and return an evidence packet.
 
     Scout searches for relevant code patterns via ripgrep and RAG retrieval,
