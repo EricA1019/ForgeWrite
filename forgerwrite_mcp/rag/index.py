@@ -9,6 +9,23 @@ import numpy as np
 from forgerwrite_mcp.rag.preprocessor import ProcessedDoc
 from forgerwrite_mcp.rag.retriever import RagDocument
 
+# Module-level SentenceTransformer cache — model load is expensive (~130MB, 5-10s)
+# on first call. Subsequent calls reuse the cached instance.
+_EMBEDDING_MODEL_CACHE: dict[str, object] = {}
+
+
+def _get_embedding_model(
+    model_name: str = "Alibaba-NLP/gte-modernbert-base",
+    device: str = "cpu",
+) -> object:
+    """Get or create a cached SentenceTransformer instance."""
+    key = f"{model_name}:{device}"
+    if key not in _EMBEDDING_MODEL_CACHE:
+        from sentence_transformers import SentenceTransformer
+
+        _EMBEDDING_MODEL_CACHE[key] = SentenceTransformer(model_name, device=device)
+    return _EMBEDDING_MODEL_CACHE[key]
+
 
 class RagIndex:
     """Builds and persists a turbovec index from preprocessed documents.
@@ -54,10 +71,8 @@ class RagIndex:
             self._turbovec = None
             return
 
-        from sentence_transformers import SentenceTransformer
         from turbovec import TurboQuantIndex
-
-        model = SentenceTransformer("Alibaba-NLP/gte-modernbert-base", device="cpu")
+        model = _get_embedding_model()
 
         # Truncate long documents to avoid CPU overload during embedding.
         # gte-modernbert-base has 8192 token context; we cap content at 2000

@@ -1,4 +1,4 @@
-"""ForgeWrite MCP server — FastMCP stdio server with 10 thin tools.
+"""ForgeWrite MCP server — FastMCP stdio server with 22 MCP tools.
 
 Design reference: §5.10
 
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import UTC
 from pathlib import Path
 
 from .errors import envelope_from
@@ -56,9 +57,14 @@ async def fw_turbovec_health() -> dict:
 
 
 async def fw_turbovec_index(
-    kb_dir: str = "data/rag", index_path: str = "data/rag/index.tqi"
+    kb_dir: str = "data/rag",
+    index_path: str = "data/rag/index.tqi",
 ) -> dict:
     """Build (or rebuild) the TurboVec retrieval index.
+
+    Index building is CPU-bound (sentence-transformers embeddings).
+    This tool returns immediately and runs indexing in the background.
+    Monitor progress via fw_turbovec_health.
 
     Args:
         kb_dir: Directory containing curated knowledge base markdown files.
@@ -68,28 +74,32 @@ async def fw_turbovec_index(
         Dict with ok status and document count.
     """
     try:
-        from pathlib import Path
+        import asyncio
 
         from .rag import build_rag_index
-        from .rag.preprocessor import DocumentPreprocessor
 
-        # Count docs before building (RagIndex doesn't expose count)
-        kb = Path(kb_dir)
-        curated = kb / "rust-knowledge-base.md"
-        doc_count = 0
-        if curated.exists():
-            processor = DocumentPreprocessor(source="curated")
-            doc_count += len(processor.process_file(str(curated)))
-        # External dirs
-        for ext_dir_name in ("rust-cookbook", "rust-by-example"):
-            ext_dir = kb / ext_dir_name / "src"
-            if ext_dir.is_dir():
-                processor = DocumentPreprocessor(source=ext_dir_name)
-                for md_file in sorted(ext_dir.rglob("*.md")):
-                    doc_count += len(processor.process_file(str(md_file)))
+        # Start indexing in a background task, return immediately
+        _flag = {"done": False, "error": None}
 
-        build_rag_index(kb_dir=kb_dir, index_path=index_path)
-        return {"ok": True, "indexed": doc_count}
+        async def _bg_build() -> None:
+            try:
+                index = await asyncio.to_thread(
+                    build_rag_index,
+                    kb_dir=kb_dir,
+                    index_path=index_path,
+                )
+                _flag["done"] = True
+            except Exception as _exc:
+                _flag["error"] = str(_exc)
+
+        asyncio.create_task(_bg_build())
+
+        return {
+            "ok": True,
+            "started": True,
+            "status": "indexing — run fw_turbovec_health to monitor",
+            "index_path": index_path,
+        }
     except Exception as exc:
         return envelope_from(exc, "turbovec_index").to_dict()
 
@@ -98,11 +108,18 @@ async def fw_scout(
     question: str,
     allowed_files: list[str] | None = None,
     use_model_planner: bool = False,
+    max_results: int = 20,
 ) -> dict:
     """Run the Scout evidence pipeline and return an evidence packet.
 
     Scout searches for relevant code patterns via ripgrep and RAG retrieval,
     producing path:line evidence for the requested question.
+
+    Args:
+        question: Natural-language question to find evidence for.
+        allowed_files: Optional list of file paths to scope the search.
+        use_model_planner: If True, use the local LLM to plan grep queries.
+        max_results: Maximum exact evidence lines to return (default 20).
     """
     try:
         from .config import load_config
@@ -116,6 +133,7 @@ async def fw_scout(
             repo_root=Path.cwd(),
             enricher=enricher,
             use_model_planner=use_model_planner,
+            max_evidence_lines=max_results,
         )
         packet = scout.scout(
             question=question,
@@ -129,11 +147,17 @@ async def fw_scout(
 async def fw_scout_grep(
     queries: list[str],
     allowed_files: list[str] | None = None,
+    max_results: int = 20,
 ) -> dict:
     """Bounded grep through ForgeWrite path policy.
 
     Runs ripgrep with safety constraints — no files outside the repo,
     capped matches, and timeout.
+
+    Args:
+        queries: List of grep patterns to search for.
+        allowed_files: Optional list of file paths to scope the search.
+        max_results: Maximum matches to return (default 20).
     """
     try:
         from .scout.safe_grep import safe_grep
@@ -146,6 +170,7 @@ async def fw_scout_grep(
         result = safe_grep(
             repo_root=Path.cwd(),
             queries=search_queries,
+            max_total_matches=max_results,
         )
         return {
             "ok": True,
@@ -259,7 +284,7 @@ async def fw_knowledge_record_usage(entry_id: str, outcome: str, notes: str = ""
         notes: Optional notes about the outcome.
     """
     try:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from .contracts.registry import ContractRegistry
         from .knowledge.store import KnowledgeStore
@@ -267,7 +292,7 @@ async def fw_knowledge_record_usage(entry_id: str, outcome: str, notes: str = ""
         usage = {
             "schema_id": "forgewrite.knowledge_usage.v1",
             "entry_id": entry_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "outcome": outcome,
             "notes": notes,
         }
@@ -334,7 +359,7 @@ async def fw_model_health() -> dict:
     try:
         from .config import load_config
         from .llama_client import LlamaCppClient
-        from .model_state import load_last_model, save_model_state
+        from .model_state import save_model_state
 
         config = load_config(Path.cwd())
         client = LlamaCppClient.from_config(config.local_model)
@@ -494,19 +519,33 @@ def boot() -> None:
             return envelope_from(exc, "validate_ops").to_dict()
 
     @mcp.tool()
-    async def fw_preview_operations(operation_batch: dict, slice_contract: dict) -> dict:
-        """Produce a preview diff."""
+    async def fw_preview_operations(
+        operation_batch: dict,
+        slice_contract: dict,
+        run_id: str = "preview",
+    ) -> dict:
+        """Produce a preview diff and write an approval record.
+
+        Args:
+            operation_batch: The operations to preview.
+            slice_contract: The slice contract for scope validation.
+            run_id: Run identifier (default "preview"). Use a unique ID
+                   for parallel operations.
+        """
         try:
+            from .approval import write_approval_record
             from .forge.forge import preview_operations
             from .operations.registry import default_registry
 
             result = preview_operations(
                 Path.cwd(),
-                "preview",
+                run_id,
                 operation_batch,
                 slice_contract,
                 default_registry(),
             )
+            run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
+            write_approval_record(run_dir)
             return {
                 "ok": True,
                 "diff_sha256": result.diff_sha256,
@@ -517,16 +556,33 @@ def boot() -> None:
 
     @mcp.tool()
     async def fw_apply_approved_operations(
-        operation_batch: dict, slice_contract: dict, run_id: str
+        operation_batch: dict, slice_contract: dict,
+        run_id: str = "preview",
+        auto_validate: bool = False,
     ) -> dict:
-        """Apply approved operations."""
+        """Apply approved operations with full lifecycle.
+
+        Verifies approval, applies operations, writes audit event,
+        cleans up snapshot, and optionally runs validation.
+
+        Args:
+            operation_batch: The operations to apply.
+            slice_contract: The slice contract for scope validation.
+            run_id: Run identifier (default "preview"). Must match the
+                   run_id used in fw_preview_operations.
+            auto_validate: If True, run validation profile after apply.
+        """
         try:
             from .approval import assert_approved
+            from .audit import write_audit_event
+            from .dead_letter import write_dead_letter
             from .forge.forge import apply_approved_operations
+            from .forge.git_utils import cleanup_snapshot
             from .operations.registry import default_registry
 
             run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
             approval = assert_approved(run_dir, Path.cwd())
+
             result = apply_approved_operations(
                 Path.cwd(),
                 run_id,
@@ -535,8 +591,35 @@ def boot() -> None:
                 approval,
                 default_registry(),
             )
-            return {"ok": True, "changed": len(result.changed)}
+
+            write_audit_event(run_dir, "apply", {"run_id": run_id, "changed": len(result.changed)})
+            cleanup_snapshot(Path.cwd(), run_id)
+
+            response: dict = {"ok": True, "changed": len(result.changed)}
+
+            if auto_validate:
+                try:
+                    from .config import load_config
+                    from .validation.runner import run_validation_profile
+
+                    config = load_config(Path.cwd())
+                    vr = run_validation_profile(
+                        Path.cwd(),
+                        "python_default",
+                        config.validation,
+                        limits=config.limits,
+                    )
+                    response["validation_passed"] = vr["passed"]
+                except Exception as ve:
+                    response["validation_passed"] = False
+                    response["validation_error"] = str(ve)
+
+            return response
         except Exception as exc:
+            from .dead_letter import write_dead_letter
+
+            run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
+            write_dead_letter(run_dir, f"Apply failed: {exc}")
             return envelope_from(exc, "apply").to_dict()
 
     @mcp.tool()

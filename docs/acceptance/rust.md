@@ -1,3 +1,6 @@
+> **Note:** This acceptance report reflects Phase 1 state. Phase 5+ changes (Scout, KB, lifecycle fixes) are not covered here.
+
+
 # Rust MVP Acceptance Report
 
 **Date:** 2026-06-13

@@ -1,3 +1,6 @@
+> **Note:** This comparison report reflects Phase 5 state. Scout now defaults to `max_results=20` for smaller responses.
+
+
 # Scout Comparison Report — Deterministic vs Model-Assisted
 
 **Date:** 2026-06-16

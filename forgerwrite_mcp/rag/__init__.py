@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from .enricher import RagPromptEnricher
-from .index import RagIndex
+from .index import RagIndex, _get_embedding_model
 from .preprocessor import DocumentPreprocessor, ProcessedDoc
 from .retriever import RagDocument, RagRetriever
 
@@ -60,8 +60,6 @@ def build_rag_enricher(
     if not index_path.exists():
         return None
 
-    from sentence_transformers import SentenceTransformer
-
     kb_path = root / "data" / "rag" / "rust-knowledge-base.md"
     if kb_path.exists():
         processor = DocumentPreprocessor(source="curated")
@@ -80,7 +78,7 @@ def build_rag_enricher(
     ]
 
     index = RagIndex.load(str(index_path), documents=rag_docs)
-    model = SentenceTransformer(config.rag.embedding_model_name, device="cpu")
+    model = _get_embedding_model(config.rag.embedding_model_name)
     retriever = RagRetriever(index=index, model=model, documents=rag_docs)
 
     return RagPromptEnricher(

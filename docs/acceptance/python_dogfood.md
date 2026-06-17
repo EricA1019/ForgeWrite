@@ -1,3 +1,6 @@
+> **Note:** This acceptance report reflects Phase 3 state. Scout, KB, and lifecycle fixes were added in later phases.
+
+
 # Python Dogfood Acceptance Report
 
 **Date:** 2026-06-16

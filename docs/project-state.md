@@ -1,8 +1,8 @@
 # ForgeWrite MCP — Project State
 
 **Date:** 2026-06-13
-**Branch:** `main` (uncommitted Phase 0 changes)
-**Phase:** Phase 0 complete — Stabilize Core & Naming
+**Branch:** `docs/polish-suite`
+**Phase:** D4 complete — Documentation Suite + Lifecycle Fixes
 **Full plan:** `docs/implementation-plan.md`
 
 ---
@@ -25,7 +25,7 @@ forgerwrite_mcp/
 ├── local_model.py        # LocalModelBackend Protocol + FakeLocalModelBackend
 ├── paths.py              # safe_resolve_path (single DRY path safety)
 ├── repair.py             # RepairCoordinator — bounded budget, feedback prompt
-├── server.py             # FastMCP server — 10 thin tools, stdout→stderr, summary tool
+├── server.py             # FastMCP server — 22 MCP tools, stdout→stderr, summary tool
 ├── summary.py            # Markdown run summary generator
 ├── contracts/
 │   └── registry.py       # JSON Schema loading + Draft 2020-12 validation
@@ -70,7 +70,7 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 | `validation/semantic.py` | 207 | Pluggable `SemanticValidator` with 5 rules |
 | `validation/runner.py` | 143 | `run_validation_profile()` — allowlisted, SIGTERM/SIGKILL |
 | `repair.py` | 116 | `RepairCoordinator` — bounded budget, attempt tracking |
-| `server.py` | 217 | FastMCP server — 10 thin tools, stdout→stderr redirect, summary tool |
+| `server.py` | 217 | FastMCP server — 22 MCP tools, stdout→stderr redirect, summary tool |
 | `cli.py` | 412 | Typer CLI — 12 commands, `--json` flag, summary-powered inspect |
 
 ## Test Coverage
