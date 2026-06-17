@@ -12,6 +12,12 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Footer, Header, Static
 
+# ── Constants ──────────────────────────────────────────────────────────────
+
+_MAX_MODEL_NAME_LEN: int = 25
+_MAX_PURPOSE_NAME_LEN: int = 25
+
+
 # ── Data providers (imported lazily at call time) ────────────────────────────
 
 
@@ -175,30 +181,56 @@ class ForgerwriteTUI(App):
             self.query_one("#info-content").update("Error loading info")
 
     @staticmethod
+    @staticmethod
     def _render_tokens(stats: dict) -> str:
-        if stats["total_calls"] == 0:
+        total = stats.get("total_tokens", 0)
+        if total == 0:
             return (
                 "No token data yet.\n"
                 "Run fw_generate_operations_local to start tracking."
             )
+
+        inp = stats.get("total_input_tokens", 0)
+        out = stats.get("total_output_tokens", 0)
+        inp_pct = (inp / total * 100) if total > 0 else 0
+        out_pct = (out / total * 100) if total > 0 else 0
+
         lines = [
-            f"Total calls:  {stats['total_calls']}",
-            f"Input tokens: {stats['total_input_tokens']:,}",
-            f"Output tokens: {stats['total_output_tokens']:,}",
-            f"Total tokens: {stats['total_tokens']:,}",
+            f"\U0001f4ca  {stats['total_calls']} calls  |  "
+            f"in: {inp:,} ({inp_pct:.0f}%)  out: {out:,} ({out_pct:.0f}%)",
+            f"Total: {total:,} tokens",
             "",
-            "\U0001f4b0 Saved vs cloud:",
         ]
+
+        # By purpose — primary breakdown (most actionable)
+        by_purpose = stats.get("by_purpose", {})
+        if by_purpose:
+            lines.append("\U0001f3af By usage:")
+            for purpose, p in sorted(by_purpose.items(), key=lambda x: x[1]["total_tokens"],
+                    reverse=True):
+                name = purpose[:_MAX_PURPOSE_NAME_LEN]
+                t = p["total_tokens"]
+                pct = (t / total * 100) if total > 0 else 0
+                lines.append(f"  {name}: {p['calls']} calls, {t:,} tokens ({pct:.0f}%)")
+
+        # By model — secondary breakdown
+        by_model = stats.get("by_model", {})
+        if by_model:
+            lines.append("")
+            lines.append("\U0001f916 By model:")
+            for model_name, m in sorted(by_model.items(), key=lambda x: x[1]["total_tokens"],
+                    reverse=True):
+                name = model_name[:_MAX_MODEL_NAME_LEN]
+                t = m["total_tokens"]
+                pct = (t / total * 100) if total > 0 else 0
+                lines.append(f"  {name}: {m['calls']} calls, {t:,} tokens ({pct:.0f}%)")
+
+        # Savings
+        lines.append("")
+        lines.append("\U0001f4b0 Saved vs cloud:")
         for key in ("claude", "gpt4o"):
             s = stats["estimated_savings"][key]
             lines.append(f"  {s['label']}: ${s['total']:.4f}")
-
-        if stats.get("by_model"):
-            lines.append("")
-            lines.append("By model:")
-            for model, m in sorted(stats["by_model"].items()):
-                name = model[:35]
-                lines.append(f"  {name}: {m['calls']} calls, {m['total_tokens']:,} tokens")
 
         return "\n".join(lines)
 
