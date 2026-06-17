@@ -78,7 +78,7 @@ class TestRenderTokens:
         from forgerwrite_mcp.tui import ForgerwriteTUI
 
         result = ForgerwriteTUI._render_tokens(self._FIXTURE)
-        assert "By model" in result
+        assert "Local model" in result
         assert "omnicoder-9b" in result
         assert "stress-model-0" in result
 

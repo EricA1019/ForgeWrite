@@ -184,7 +184,6 @@ class ForgerwriteTUI(App):
             self.query_one("#info-content").update("Error loading info")
 
     @staticmethod
-    @staticmethod
     def _render_tokens(stats: dict) -> str:
         total = stats.get("total_tokens", 0)
         if total == 0:
@@ -199,7 +198,7 @@ class ForgerwriteTUI(App):
         out_pct = (out / total * 100) if total > 0 else 0
 
         lines = [
-            f"\U0001f4ca  {stats['total_calls']} calls  |  "
+            f"\U0001f4ca  All local  |  {stats['total_calls']} calls  |  "
             f"in: {inp:,} ({inp_pct:.0f}%)  out: {out:,} ({out_pct:.0f}%)",
             f"Total: {total:,} tokens",
             "",
@@ -220,20 +219,27 @@ class ForgerwriteTUI(App):
         by_model = stats.get("by_model", {})
         if by_model:
             lines.append("")
-            lines.append("\U0001f916 By model:")
+            lines.append("\U0001f916 Local model:")
             for model_name, m in sorted(by_model.items(), key=lambda x: x[1]["total_tokens"],
                     reverse=True):
                 name = model_name[:_MAX_MODEL_NAME_LEN]
                 t = m["total_tokens"]
+                inp_m = m.get("input_tokens", 0)
+                out_m = m.get("output_tokens", 0)
                 pct = (t / total * 100) if total > 0 else 0
-                lines.append(f"  {name}: {m['calls']} calls, {t:,} tokens ({pct:.0f}%)")
+                lines.append(f"  {name}")
+                lines.append(f"    in: {inp_m:,}  out: {out_m:,}  ({pct:.0f}%)")
 
-        # Savings
+        # Cloud equivalent cost (what the same tokens would cost on cloud APIs)
         lines.append("")
-        lines.append("\U0001f4b0 Saved vs cloud:")
+        lines.append("\U00002601 Cloud equivalent cost:")
         for key in ("claude", "gpt4o"):
             s = stats["estimated_savings"][key]
-            lines.append(f"  {s['label']}: ${s['total']:.4f}")
+            inp_cost = s.get("input_cost", 0)
+            out_cost = s.get("output_cost", 0)
+            tot = s["total"]
+            lines.append(f"  {s['label']}")
+            lines.append(f"    in: ${inp_cost:.4f}  out: ${out_cost:.4f}  total: ${tot:.4f}")
 
         return "\n".join(lines)
 
