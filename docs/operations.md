@@ -111,7 +111,7 @@ Insert content after a specific line. The line must exist.
 {
   "op": "insert_after_line",
   "path": "src/main.rs",
-  "line": 3,
+  "after_line": 3,
   "content": "    let config = load_config()?;\n"
 }
 ```
@@ -120,7 +120,7 @@ Insert content after a specific line. The line must exist.
 |-------|------|----------|-------------|
 | `op` | string | yes | Must be `"insert_after_line"` |
 | `path` | string | yes | Relative path, must exist |
-| `line` | integer | yes | 1-indexed line number to insert after |
+| `after_line` | integer | yes | 1-indexed line number to insert after |
 | `content` | string | yes | Text to insert |
 
 ---
@@ -133,7 +133,7 @@ Insert content before a specific line. The line must exist.
 {
   "op": "insert_before_line",
   "path": "src/main.rs",
-  "line": 1,
+  "before_line": 1,
   "content": "// Copyright 2026\n// SPDX-License-Identifier: MIT\n\n"
 }
 ```
@@ -142,7 +142,7 @@ Insert content before a specific line. The line must exist.
 |-------|------|----------|-------------|
 | `op` | string | yes | Must be `"insert_before_line"` |
 | `path` | string | yes | Relative path, must exist |
-| `line` | integer | yes | 1-indexed line number to insert before |
+| `before_line` | integer | yes | 1-indexed line number to insert before |
 | `content` | string | yes | Text to insert |
 
 ---

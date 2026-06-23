@@ -1,8 +1,9 @@
 # ForgeWrite MCP — Project State
 
-**Date:** 2026-06-13
-**Branch:** `docs/polish-suite`
-**Phase:** D4 complete — Documentation Suite + Lifecycle Fixes
+**Date:** 2026-06-23
+**Branch:** `main`
+**Phase:** 7 complete — Integrations + RC + Hardening
+**Status:** v0.1.0-rc1 tagged, rc2 hardening in progress
 **Full plan:** `docs/implementation-plan.md`
 
 ---
@@ -13,36 +14,38 @@
 forgerwrite_mcp/
 ├── artifacts.py          # Run ID generation + centralized artifact I/O
 ├── approval.py           # Hash-bound, TOCTOU-safe terminal approval + audit
-├── audit.py              # JSONL audit event log per run (approve/apply/restore/abort)
-├── cli.py                # Typer CLI — 12 commands (inspect uses summary module)
-├── config.py             # Pydantic models for all 7 config sections
+├── audit.py              # JSONL audit event log per run
+├── audit_analyzer.py     # Audit log analysis for Markdown/JSON reports
+├── cli.py                # Typer CLI — 16 commands, --json flag
+├── config.py             # Pydantic models for 8 config sections (project, local_model,
+│                         #   limits, validation, permissions, hygiene, repair, rag)
 ├── context.py            # Context packet builder (per-file + total limits, SHA256)
-├── coordinator.py        # SliceCoordinator — 14-state machine, zero stubs, audit+dead_letter
-├── dead_letter.py        # Centralized dead letter writer (shared by coordinator+CLI)
-├── doctor.py             # Shared run_doctor_checks() — used by CLI + auto-run hooks
+├── coordinator.py        # SliceCoordinator — 14-state machine, zero stubs
+├── dead_letter.py        # Centralized dead letter writer
+├── doctor.py             # Shared doctor checks (config, git, llama.cpp, RAG)
 ├── errors.py             # PublicError, ErrorEnvelope, 10 error code constants
 ├── llama_client.py       # HTTP client for llama.cpp (retry + circuit breaker)
 ├── local_model.py        # LocalModelBackend Protocol + FakeLocalModelBackend
-├── paths.py              # safe_resolve_path (single DRY path safety)
+├── model_state.py        # Model state persistence for dashboards
+├── paths.py              # safe_resolve_path (DRY path safety)
 ├── repair.py             # RepairCoordinator — bounded budget, feedback prompt
-├── server.py             # FastMCP server — 22 MCP tools, stdout→stderr, summary tool
+├── server.py             # FastMCP server — 22 MCP tools, stdio transport
 ├── summary.py            # Markdown run summary generator
-├── contracts/
-│   └── registry.py       # JSON Schema loading + Draft 2020-12 validation
-├── forge/
-│   ├── git_utils.py      # Snapshot create/cleanup/restore, worktree checks
-│   └── forge.py          # preview_operations, apply_approved_operations
-├── operations/
-│   ├── registry.py       # OperationHandler Protocol + OperationRegistry
-│   ├── create_file.py, replace_file.py, replace_line_range.py
-│   ├── insert_after_line.py, insert_before_line.py, delete_file.py
-└── validation/
-    ├── runner.py          # Validation runner (allowlisted commands, SIGTERM/SIGKILL)
-    └── semantic.py        # SemanticValidator with 5 pluggable rules
+├── token_tracker.py      # Token usage tracker (by-model, by-purpose)
+├── tui.py                # Textual TUI dashboard
+├── contracts/            # JSON Schema loading + Draft 2020-12 validation
+├── forge/                # Git snapshot/diff/restore utilities
+├── integrations/         # Fail-soft adapters: MEX, Graphify, Headroom
+├── knowledge/            # Saved Work Knowledge Base (store, indexer, promotion)
+├── languages/            # LanguageAdapter protocol + Rust/Python implementations
+├── operations/           # 6 file operation handlers (create, replace, delete, insert)
+├── rag/                  # RAG subsystem (indexer, retriever, enricher, preprocessor)
+├── scout/                # Scout evidence discovery (coordinator, safe_grep)
+└── validation/           # CI validation runner + semantic rules
 
-schemas/   (6 JSON Schema Draft 2020-12 files)
-tests/     (27 test files, 180 tests)
-docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.md)
+schemas/   (9 JSON Schema Draft 2020-12 files)
+tests/     (~40 test files, 358 tests)
+docs/      (project-state.md, implementation-plan.md, adr/, acceptance/, handoff/, patterns/)
 .github/   (CI workflow: lint, typecheck, test, security-audit, trivy)
 .vscode/   (mcp.json for VS Code MCP integration)
 ```
@@ -70,8 +73,17 @@ docs/      (project-state.md, llama-cpp-setup.md, operations.md, configuration.m
 | `validation/semantic.py` | 207 | Pluggable `SemanticValidator` with 5 rules |
 | `validation/runner.py` | 143 | `run_validation_profile()` — allowlisted, SIGTERM/SIGKILL |
 | `repair.py` | 116 | `RepairCoordinator` — bounded budget, attempt tracking |
-| `server.py` | 217 | FastMCP server — 22 MCP tools, stdout→stderr redirect, summary tool |
-| `cli.py` | 412 | Typer CLI — 12 commands, `--json` flag, summary-powered inspect |
+| `server.py` | ~640 | FastMCP server — 22 MCP tools over stdio |
+| `cli.py` | ~580 | Typer CLI — 16 commands, `--json` flag |
+| `token_tracker.py` | ~120 | Token usage tracking with by-model, by-purpose breakdowns |
+| `tui.py` | ~200 | Textual TUI dashboard (tokens, runs, KB, model health) |
+| `audit_analyzer.py` | ~80 | Audit log analysis, Markdown/JSON report generation |
+| `model_state.py` | ~70 | Model server state persistence |
+| `integrations/` | ~150 | Fail-soft MEX, Graphify, Headroom adapters |
+| `knowledge/` | ~350 | KB store, indexer, promotion, 6 MCP tools |
+| `languages/` | ~200 | LanguageAdapter Protocol + RustAdapter + PythonAdapter |
+| `rag/` | ~300 | RAG indexer, retriever, enricher, preprocessor |
+| `scout/` | ~250 | Scout evidence coordinator + safe_grep
 
 ## Test Coverage
 

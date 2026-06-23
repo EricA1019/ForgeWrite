@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-
 # ── Constants ────────────────────────────────────────────────────────────────
 
 _REPO_WITH_MEX = Path(__file__).parent.parent  # This repo has .mex/

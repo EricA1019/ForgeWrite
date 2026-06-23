@@ -21,7 +21,7 @@ model = "omnicoder-9b"
 temperature = 0.20
 top_p = 0.90
 top_k = 20
-max_tokens = 2048
+max_tokens = 4096
 json_retries = 2
 request_timeout_seconds = 180
 retry_base_delay_seconds = 0.5
@@ -75,7 +75,7 @@ scope_must_match_original_slice = true
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `name` | string | yes | — | Project name (used in artifacts) |
-| `language` | string | yes | — | Primary language: `"rust"`, `"python"`, `"typescript"` |
+| `language` | string | yes | — | Primary language: `"rust"` or `"python"` |
 | `repo_root` | string | no | `"."` | Path to repo root relative to config |
 
 > **Note:** Setting `language = "python"` produces Python validation commands
@@ -86,7 +86,7 @@ scope_must_match_original_slice = true
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `provider` | string | yes | — | Backend provider: `"llama_cpp"` |
+| `provider` | string | no | `"llama_cpp"` | Backend provider: `"llama_cpp"` |
 | `endpoint` | string | yes | — | HTTP endpoint URL (include `/v1`) |
 | `model` | string | yes | — | Model name |
 | `temperature` | float | no | `0.20` | Sampling temperature (0.0–2.0; Gemma 4: 1.0) |

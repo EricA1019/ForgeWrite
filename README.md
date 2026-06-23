@@ -4,7 +4,7 @@
 
 ForgeWrite delegates narrow, well-scoped file edits to a local LLM (Gemma 4 12B via llama.cpp) while keeping the cloud orchestrator in control. It fails closed — every operation is previewed, hash-bound, and TOCTOU-guarded before it touches your working tree.
 
-**360 tests. 22 MCP tools. 16 CLI commands. Rust + Python. RAG + Scout + Knowledge Base + TUI.**
+**358 tests. 22 MCP tools. 16 CLI commands. Rust + Python. RAG + Scout + Knowledge Base + TUI.**
 
 ---
 
@@ -118,7 +118,7 @@ forgerwrite_mcp/
 ├── audit.py              JSONL audit event log per run
 ├── audit_analyzer.py     Audit log analysis for Markdown/JSON reports
 ├── cli.py                Typer CLI — 16 commands, --json flag
-├── config.py             Pydantic config models (7 sections: project, local_model,
+├── config.py             Pydantic config models (8 sections: project, local_model,
 │                         limits, validation, permissions, hygiene, repair, rag)
 ├── context.py            Context packet builder (per-file + total limits, SHA256)
 ├── coordinator.py        SliceCoordinator — 14-state pipeline, zero stubs
@@ -218,7 +218,7 @@ model = "gemma-4-12b-it"
 temperature = 0.20
 top_p = 0.90
 top_k = 20
-max_tokens = 2048
+max_tokens = 4096
 json_retries = 2
 request_timeout_seconds = 180
 
@@ -319,7 +319,7 @@ Required hardware:
 
 ```bash
 uv sync --group dev
-uv run pytest -q           # 360 tests
+uv run pytest -q           # 358 tests
 uv run ruff check .        # Lint
 uv run mypy forgerwrite_mcp/  # Type check
 ```

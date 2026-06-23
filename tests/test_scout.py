@@ -93,16 +93,16 @@ class TestSafeGrep:
 
     def test_rejects_path_outside_repo(self) -> None:
         """safe_grep must reject queries that resolve outside the repo root."""
-        from forgerwrite_mcp.scout.safe_grep import safe_grep
         from forgerwrite_mcp.errors import PublicError
+        from forgerwrite_mcp.scout.safe_grep import safe_grep
 
         with pytest.raises(PublicError):
             safe_grep(Path("/tmp"), ["../../etc/passwd"])
 
     def test_rejects_absolute_path_in_query(self) -> None:
         """safe_grep must reject absolute paths in queries."""
-        from forgerwrite_mcp.scout.safe_grep import safe_grep
         from forgerwrite_mcp.errors import PublicError
+        from forgerwrite_mcp.scout.safe_grep import safe_grep
 
         with pytest.raises(PublicError):
             safe_grep(Path("/tmp"), ["/etc/passwd"])

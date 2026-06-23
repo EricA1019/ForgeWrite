@@ -369,6 +369,7 @@ class TestSliceCoordinator:
         tools should call directly.
         """
         import asyncio
+
         from forgerwrite_mcp.coordinator import SliceCoordinator
 
         coord: SliceCoordinator = coordinator  # type: ignore[assignment]

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ── Constants ────────────────────────────────────────────────────────────────
 
 _VALID_ENTRY = {

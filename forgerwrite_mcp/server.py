@@ -3,13 +3,10 @@
 Design reference: §5.10
 
 Every tool delegates to SliceCoordinator. No orchestration logic here.
-Stdout is redirected to stderr at boot to prevent protocol corruption.
 """
 
 from __future__ import annotations
 
-import os
-import sys
 from datetime import UTC
 from pathlib import Path
 
@@ -83,7 +80,7 @@ async def fw_turbovec_index(
 
         async def _bg_build() -> None:
             try:
-                index = await asyncio.to_thread(
+                await asyncio.to_thread(
                     build_rag_index,
                     kb_dir=kb_dir,
                     index_path=index_path,
@@ -376,16 +373,6 @@ async def fw_model_health() -> dict:
         return {"ok": True, **health}
     except Exception as exc:
         return envelope_from(exc, "model_health").to_dict()
-
-
-def _redirect_stdout_to_stderr() -> None:
-    """Redirect sys.stdout to sys.stderr.
-
-    MCP uses stdio JSON-RPC. Any accidental print() to stdout corrupts
-    the protocol. This redirect is mandatory and tested.
-    """
-    sys.stdout.flush()
-    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
 
 
 def boot() -> None:

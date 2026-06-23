@@ -115,7 +115,6 @@ class TestSemanticValidator:
 
     def test_permission_rule_still_blocks_when_config_enforces(self) -> None:
         """PermissionRule still blocks when config requires approval."""
-        from forgerwrite_mcp.config import PermissionsConfig
         from forgerwrite_mcp.validation.semantic import (
             SemanticValidationError,
             SemanticValidator,

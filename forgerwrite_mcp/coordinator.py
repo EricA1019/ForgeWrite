@@ -230,7 +230,8 @@ class SliceCoordinator:
             '- insert_before_line: op, path, before_line, content\n'
             '- delete_file: op, path\n\n'
             "RULES:\n"
-            "1. Every operation (except delete_file) MUST have a 'content' field with the text to write.\n"
+            "1. Every operation (except delete_file) MUST have a 'content'\n"
+            "   field with the text to write.\n"
             "2. Use the exact file paths from the allowed_files list.\n"
             "3. Use line numbers from the provided file contents.\n"
             "4. Line numbers are 1-indexed. Line ranges are inclusive."

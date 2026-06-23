@@ -51,6 +51,10 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["B008"]  # typer.Option/Argument in function defaults is idiomatic
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E501"]  # long lines in test data are acceptable
 
 [tool.ruff.format]
 quote-style = "double"

@@ -157,8 +157,12 @@ class PermissionRule:
         for op in batch.get("operations", []):
             if op.get("op") == "delete_file" and permissions.require_approval_for_delete:
                 errors.append(f"Delete operation requires approval: '{op.get('path')}'")
-            if op.get("op") == "replace_file" and permissions.require_approval_for_full_file_replace:
-                errors.append(f"Full file replace requires approval: '{op.get('path')}'")
+            if op.get("op") == "replace_file" and (
+                permissions.require_approval_for_full_file_replace
+            ):
+                errors.append(
+                    f"Full file replace requires approval: '{op.get('path')}'"
+                )
         return errors
 
 

@@ -1,5 +1,6 @@
 """Tests for the MCP server."""
 
+import contextlib
 import json
 import shutil
 import subprocess
@@ -34,10 +35,8 @@ def _mcp_request(*requests: dict) -> list[dict]:
     for line in proc.stdout.strip().split("\n"):
         line = line.strip()
         if line:
-            try:
+            with contextlib.suppress(json.JSONDecodeError):
                 responses.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
     return responses
 
 
@@ -49,6 +48,12 @@ class TestServerBoot:
         from forgerwrite_mcp.server import boot
 
         assert callable(boot)
+
+    def test_server_module_imports_cleanly(self) -> None:
+        """Server module can be imported without side effects."""
+        import forgerwrite_mcp.server
+
+        assert hasattr(forgerwrite_mcp.server, "boot")
 
 
 class TestMCPProtocol:
@@ -124,35 +129,6 @@ class TestMCPProtocol:
             init_resp = next((r for r in responses if r.get("id") == 1), None)
             assert init_resp is not None
             assert init_resp.get("result", {}).get("serverInfo", {}).get("name") == "forgerwrite"
-
-
-class TestServerRedirect:
-    """Tests for the (legacy) stdout redirect — no longer called at boot."""
-
-    def test_redirect_function_still_exists(self) -> None:
-        """The redirect function still exists for backwards compat."""
-        from forgerwrite_mcp.server import _redirect_stdout_to_stderr
-
-        assert callable(_redirect_stdout_to_stderr)
-
-    def test_redirect_stdout_to_stderr_works(self) -> None:
-        """After redirect, writing to sys.stdout goes to stderr (requires real fd)."""
-        # The redirect uses os.dup2 which requires real file descriptors,
-        # not StringIO. This test verifies the function exists and handles
-        # the real sys.stdout/stderr (which always have fileno).
-        from forgerwrite_mcp.server import _redirect_stdout_to_stderr
-
-        # Just verify it doesn't crash with real stdout/stderr
-        try:
-            _redirect_stdout_to_stderr()
-        except Exception as exc:
-            pytest.fail(f"_redirect_stdout_to_stderr raised: {exc}")
-
-    def test_server_module_imports_cleanly(self) -> None:
-        """Server module can be imported without side effects."""
-        import forgerwrite_mcp.server
-
-        assert hasattr(forgerwrite_mcp.server, "boot")
 
 
 class TestServerErrorEnvelope:

@@ -35,3 +35,4 @@ htmlcov/
 _output/
 data/rag/rust-by-example/
 data/rag/rust-cookbook/
+.forgerwrite/model_state.json

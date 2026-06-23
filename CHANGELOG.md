@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token usage tracker with by-model and by-purpose breakdowns
 - Audit log system for runs, with analyzer for Markdown/JSON reports
 - Textual TUI dashboard (tokens, runs, KB, model health)
-- CLI with 12 commands: init, doctor, approve, approve-batch, ping, scout, generate, validate, apply, token-stats, audit-report, model-status, tui
+- CLI with 16 commands: init, doctor, approve, show-diff, inspect, restore, abort, gc, runs list, project status, build-index, scout, token-stats, tui, audit-report, model-status
 - Model state persistence and health check (llama.cpp server detection)
 - Fail-soft integration adapters for MEX, Graphify, and Headroom
 - Python adapter: ruff, pytest, mypy validation profiles
@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Context packet builder with file exclusion and SHA-256 hashing
 - Repair loop for malformed LLM JSON output (configurable retries)
 - Stress test script covering 6 subsystems
-- 354 tests (pytest), ruff linting clean
+- 358 tests (pytest), ruff linting clean
 - GitHub Actions CI: lint, typecheck, test, security-audit, trivy
 
 ### Security
@@ -37,5 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validation before every write operation
 - Allowed-files path boundary enforcement
 - Content size cap (200KB per create_file operation)
+
+### Changed (rc2 hardening — 2026-06-23)
+- Removed dead `_redirect_stdout_to_stderr()` code that was no longer called at boot
+- Removed unused `import os` and `import sys` from server module
+- All error responses use `envelope_from()` consistently (22 tools audited)
+- Documentation: test count, tool count, and CLI count synchronized across all docs
+- ROUTER.md project state updated to reflect completed Phase 5.6 and 7 items
 
 [0.1.0]: https://github.com/EricA1019/ForgeWrite/releases/tag/v0.1.0

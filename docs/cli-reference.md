@@ -12,7 +12,7 @@ Scaffold `.forgerwrite/` directory and default config.
 forgerwrite init
 ```
 
-Creates `.forgerwrite/config.toml` with all 7 config sections (server, model, operations, repair, validation, knowledge_base, integrations).
+Creates `.forgerwrite/forgerwrite.toml` with all 8 config sections (project, local_model, limits, validation, permissions, hygiene, repair, rag).
 
 ---
 

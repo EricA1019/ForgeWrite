@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
 import pytest
-
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -98,8 +96,8 @@ max_rag_tokens = 2048
 def _build_mini_index(tmp_path: Path) -> None:
     """Build a small turbovec index with test documents in the tmp repo."""
     import numpy as np
-    from turbovec import TurboQuantIndex
     from sentence_transformers import SentenceTransformer
+    from turbovec import TurboQuantIndex
 
     from forgerwrite_mcp.rag.retriever import RagDocument
 
@@ -234,9 +232,9 @@ class TestRagCoordinatorIntegration:
         _build_mini_index(tmp_path)
 
         from forgerwrite_mcp.config import load_config
+        from forgerwrite_mcp.coordinator import SliceCoordinator
         from forgerwrite_mcp.operations.registry import default_registry
         from forgerwrite_mcp.rag import build_rag_enricher
-        from forgerwrite_mcp.coordinator import SliceCoordinator
 
         config = load_config(tmp_path)
         enricher = build_rag_enricher(config)
@@ -259,7 +257,7 @@ class TestRagCoordinatorIntegration:
         }
 
         # Run the pipeline — it will call generate_operation_batch on our fake
-        outcome = coord.run(handoff, slice_contract)
+        coord.run(handoff, slice_contract)
 
         # The fake backend should have received an enriched prompt
         assert "RELEVANT KNOWLEDGE" in backend.last_user_prompt, (
@@ -276,9 +274,9 @@ class TestRagCoordinatorIntegration:
         _build_mini_index(tmp_path)
 
         from forgerwrite_mcp.config import load_config
+        from forgerwrite_mcp.coordinator import SliceCoordinator
         from forgerwrite_mcp.operations.registry import default_registry
         from forgerwrite_mcp.rag import build_rag_enricher
-        from forgerwrite_mcp.coordinator import SliceCoordinator
 
         config = load_config(tmp_path)
         enricher = build_rag_enricher(config)
@@ -311,8 +309,8 @@ class TestRagCoordinatorIntegration:
         _build_mini_index(tmp_path)
 
         from forgerwrite_mcp.config import load_config
-        from forgerwrite_mcp.operations.registry import default_registry
         from forgerwrite_mcp.coordinator import SliceCoordinator
+        from forgerwrite_mcp.operations.registry import default_registry
 
         config = load_config(tmp_path)
 
@@ -390,8 +388,6 @@ class TestTurbovecHealthTool:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """When RAG index doesn't exist, health reports healthy=False."""
-        import json
-        from pathlib import Path as _Path
 
         # Point CWD to tmp_path so .forgerwrite/forgerwrite.toml doesn't interfere
         monkeypatch.chdir(tmp_path)
@@ -426,10 +422,10 @@ index_path = "nonexistent.tqi"
 """)
 
         # Import the tool function
-        from forgerwrite_mcp.server import fw_turbovec_health
-
         # We need to run the async tool. Use asyncio.run.
         import asyncio
+
+        from forgerwrite_mcp.server import fw_turbovec_health
 
         result = asyncio.run(fw_turbovec_health())
         assert result["ok"] is True
@@ -441,11 +437,11 @@ index_path = "nonexistent.tqi"
     ) -> None:
         """When RAG index exists, health reports healthy=True with doc count."""
         import asyncio
-        from pathlib import Path as _Path
+
+        from forgerwrite_mcp.rag.index import RagIndex
 
         # Build a small index in tmp_path using ProcessedDoc directly
         from forgerwrite_mcp.rag.preprocessor import ProcessedDoc
-        from forgerwrite_mcp.rag.index import RagIndex
 
         docs = [
             ProcessedDoc(

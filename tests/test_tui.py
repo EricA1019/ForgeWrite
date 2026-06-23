@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 class TestRenderTokens:
     """Tests for ForgerwriteTUI._render_tokens (static method)."""

@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 
 class TestLanguageAdapterProtocol:
     """Contract tests for LanguageAdapter."""
@@ -25,8 +21,8 @@ class TestLanguageAdapterProtocol:
     def test_adapter_exposes_language_property(self) -> None:
         """Every adapter must expose a 'language' string property."""
         from forgerwrite_mcp.languages.base import LanguageAdapter
-        from forgerwrite_mcp.languages.rust import RustAdapter
         from forgerwrite_mcp.languages.python import PythonAdapter
+        from forgerwrite_mcp.languages.rust import RustAdapter
 
         for cls in (RustAdapter, PythonAdapter):
             adapter = cls()
@@ -36,8 +32,8 @@ class TestLanguageAdapterProtocol:
 
     def test_adapter_exposes_validation_commands(self) -> None:
         """Every adapter must return a dict of command_id → shell command."""
-        from forgerwrite_mcp.languages.rust import RustAdapter
         from forgerwrite_mcp.languages.python import PythonAdapter
+        from forgerwrite_mcp.languages.rust import RustAdapter
 
         for cls in (RustAdapter, PythonAdapter):
             adapter = cls()
@@ -52,8 +48,8 @@ class TestLanguageAdapterProtocol:
 
     def test_adapter_exposes_default_profile_name(self) -> None:
         """Every adapter must return a default validation profile name."""
-        from forgerwrite_mcp.languages.rust import RustAdapter
         from forgerwrite_mcp.languages.python import PythonAdapter
+        from forgerwrite_mcp.languages.rust import RustAdapter
 
         for cls in (RustAdapter, PythonAdapter):
             adapter = cls()
@@ -63,8 +59,8 @@ class TestLanguageAdapterProtocol:
 
     def test_adapter_exposes_profiles(self) -> None:
         """Every adapter must return a dict of profile_id → command_id list."""
-        from forgerwrite_mcp.languages.rust import RustAdapter
         from forgerwrite_mcp.languages.python import PythonAdapter
+        from forgerwrite_mcp.languages.rust import RustAdapter
 
         for cls in (RustAdapter, PythonAdapter):
             adapter = cls()

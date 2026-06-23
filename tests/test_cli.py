@@ -59,7 +59,6 @@ class TestCLIDoctor:
 
         result = runner.invoke(app, ["doctor", "--json"], env={"FORGERWRITE_ROOT": str(tmp_path)})
         assert result.exit_code in (0, 1)
-        import json
 
         data = _parse_cli_json(result)
         assert "rag_index" in data["checks"]
@@ -140,7 +139,6 @@ class TestCLITokenStats:
             env={"FORGERWRITE_ROOT": str(tmp_path)},
         )
         assert result.exit_code == 0
-        import json
 
         data = _parse_cli_json(result)
         assert data["ok"] is True
@@ -152,8 +150,9 @@ class TestCLICommandsIntegration:
 
     def test_scout_finds_evidence_in_source(self) -> None:
         """forgerwrite scout finds code patterns in the project's own source."""
-        from forgerwrite_mcp.cli import app
         from typer.testing import CliRunner
+
+        from forgerwrite_mcp.cli import app
 
         runner = CliRunner()
         result = runner.invoke(
@@ -171,8 +170,9 @@ class TestCLICommandsIntegration:
 
     def test_token_stats_includes_by_model(self) -> None:
         """token-stats --json includes by_model key."""
-        from forgerwrite_mcp.cli import app
         from typer.testing import CliRunner
+
+        from forgerwrite_mcp.cli import app
 
         runner = CliRunner()
         result = runner.invoke(

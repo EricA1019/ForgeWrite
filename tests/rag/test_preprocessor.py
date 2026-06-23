@@ -8,7 +8,6 @@ import pytest
 
 from forgerwrite_mcp.rag.preprocessor import DocumentPreprocessor, ProcessedDoc
 
-
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 def _dedent(text: str) -> str:

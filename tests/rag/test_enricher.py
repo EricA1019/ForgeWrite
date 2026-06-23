@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 from turbovec import TurboQuantIndex
 
 _HERE = __import__("pathlib").Path(__file__).parent
@@ -79,7 +78,7 @@ class TestRagPromptEnricher:
         result = enricher.enrich(base_prompt="Do something.", query="rust", k=1)
         # Should have at most 1 doc entry
         # Count separators — there should be exactly one doc block separator pair
-        separator_count = result.count("---")
+        result.count("---")
         # Headers + separators + task header = several ---
         # This is loose; just verify formatting is present
         assert "RELEVANT KNOWLEDGE" in result

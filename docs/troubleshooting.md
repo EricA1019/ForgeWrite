@@ -27,7 +27,7 @@ Common issues when using ForgeWrite, with symptoms, causes, and fixes.
 **Likely cause:** Wrong endpoint URL in config, or server started on a different port.
 
 **Fix:**
-1. Check `.forgerwrite/config.toml` → `[model]` section → `endpoint`.
+1. Check `.forgerwrite/forgerwrite.toml` → `[local_model]` section → `endpoint`.
 2. Default is `http://localhost:8080`. Verify with `curl http://localhost:8080/v1/models`.
 3. Update config if port differs.
 
@@ -43,8 +43,7 @@ Common issues when using ForgeWrite, with symptoms, causes, and fixes.
 
 **Fix:**
 1. Ensure nothing prints to stdout in the server startup path.
-2. Check that `forgerwrite_mcp/server.py` does not call `_redirect_stdout_to_stderr()` in `boot()`.
-3. Restart the MCP server from VS Code settings.
+2. Restart the MCP server from VS Code settings.
 
 ---
 
@@ -166,7 +165,7 @@ forgerwrite build-index
 **Likely cause:** The model occasionally produces malformed JSON (common with smaller local models).
 
 **Fix:**
-1. This is handled automatically — the repair loop retries up to 2 times (configurable in `.forgerwrite/config.toml` → `[repair]` → `max_retries`).
+1. This is handled automatically — the repair loop retries up to 2 times (configurable in `.forgerwrite/forgerwrite.toml` → `[repair]` → `max_attempts`).
 2. If all retries fail, check the model server: `forgerwrite model-status`.
 3. Increase `max_retries` in config if needed.
 

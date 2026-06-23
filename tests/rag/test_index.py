@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
-
 from forgerwrite_mcp.rag.index import RagIndex
 from forgerwrite_mcp.rag.preprocessor import ProcessedDoc
-from forgerwrite_mcp.rag.retriever import RagDocument
-from forgerwrite_mcp.rag.retriever import RagRetriever
-
+from forgerwrite_mcp.rag.retriever import RagDocument, RagRetriever
 
 # ── Test documents ──────────────────────────────────────────────────────────
 
@@ -53,7 +48,7 @@ class TestRagIndexBuild:
         retriever = RagRetriever(index=index, model=model, documents=rag_docs)
         results = retriever.retrieve("unique text 2", k=3)
         assert len(results) <= 3
-        assert any("doc-2" == r.doc_id for r in results)
+        assert any(r.doc_id == "doc-2" for r in results)
 
     def test_build_minimum_documents(self):
         """Single doc should work."""

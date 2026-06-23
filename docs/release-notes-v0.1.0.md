@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-16
 **Tag:** `v0.1.0-rc1`
+**Updated:** 2026-06-23 (rc2 hardening)
 
 ---
 
@@ -9,7 +10,7 @@
 
 First release candidate of ForgeWrite — a local-first MCP coding service that delegates narrow file edit slices to a local LLM with hard safety rails.
 
-**354 tests. 22 MCP tools. 13 CLI commands. Rust + Python support.**
+**358 tests. 22 MCP tools. 16 CLI commands. Rust + Python support.**
 
 ## What's Included
 

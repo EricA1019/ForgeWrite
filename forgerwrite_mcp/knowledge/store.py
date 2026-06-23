@@ -81,7 +81,7 @@ class KnowledgeStore:
     def delete(self, entry_id: str) -> None:
         """Delete a knowledge entry file. No-op if not found."""
         path = self._knowledge_dir / f"{entry_id}.json"
-        try:
+        from contextlib import suppress
+
+        with suppress(OSError):
             path.unlink(missing_ok=True)
-        except OSError:
-            pass

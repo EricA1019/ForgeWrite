@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -89,7 +89,7 @@ def promote_from_run(
     language = run_data.get("language", "unknown")
     tags = _generate_tags(language, handoff_description)
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     return {
         "schema_id": "forgewrite.knowledge_entry.v1",

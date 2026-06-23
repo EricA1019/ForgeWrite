@@ -97,7 +97,7 @@ model = "omnicoder-9b"
 temperature = 0.20
 top_p = 0.90
 top_k = 20
-max_tokens = 2048
+max_tokens = 4096
 ```
 
 For Gemma 4, update to temperature=1.0, top_p=0.95, top_k=64, max_tokens=4096.

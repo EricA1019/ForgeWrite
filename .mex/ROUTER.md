@@ -60,10 +60,10 @@ Then read this file fully before doing anything else in this session.
 - PV1: ✅ Verified — `test_permission_rule_reads_config_*` (2 tests pass)
 - PV2: ✅ Fixed — added `run_async()` + `_maybe_repair_async()`, `run()` delegates via `asyncio.run()`
 
-**Known debt (deferred to Phase 7+):**
+**Known debt (deferred):**
 - RAG enrichment duplicated in server tool (`fw_generate_operations_local`) and coordinator — two code paths
-- Phase 5.5 (comparison report): not yet started — needs 5 hand-crafted slices comparing deterministic vs model-assisted query planning
-- Phase 5.6 (allow setting `use_model_planner` from tool/CLI): Task 5.6 not yet started — `fw_scout` tool and CLI `forgerwrite scout` command always use `use_model_planner=False` currently
+- Phase 5.5 (comparison report): not yet started — needs 5 hand-crafted slices comparing deterministic vs model-assisted query planning (low priority)
+- Phase 5.6: ✅ Complete — `use_model_planner` wired to both CLI (`scout` command) and MCP tool (`fw_scout`) with deterministic fallback
 
 **Implementation plan:** `docs/implementation-plan.md` (design reference)
 **Handoff (DeepSeek Flash):** `docs/handoff/phase-0-handoff.md` (copy-paste executable tasks)
@@ -75,7 +75,7 @@ Then read this file fully before doing anything else in this session.
 - Phase 5: Model-Assisted Scout ✅ — planner, summarizer, fallback, comparison report, use_model_planner wired to tool/CLI
 - Phase 6: Saved Work KB ✅ — schemas, store, promotion, indexer, 6 MCP tools, 5 seed entries, 3 usage recordings
 - Phase 7: Integrations + RC ✅ — MEX/Graphify/Headroom adapters, docs, release notes, v0.1.0-rc1 tagged
-- Complete: 333 tests, 15 MCP tools, 13 CLI commands, 2 languages
+- Complete: 358 tests, 22 MCP tools, 16 CLI commands, 2 languages
 - Phase 8+ (deferred): Third language, package rename, production hosting
 
 ## Routing Table
