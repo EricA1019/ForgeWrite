@@ -207,35 +207,9 @@ class SliceCoordinator:
         return _STATUS_CONTEXT_READY
 
     async def _generate_operations(self, handoff: dict, slice_contract: dict) -> str:
-        # Uses LocalModelBackend Protocol (Phase 2: real backends in local_model / llama_client)
-        system_prompt = (
-            "You are a coding assistant that produces structured JSON operation batches.\n\n"
-            "Respond ONLY with a JSON object matching this exact structure:\n"
-            '{\n'
-            '  "batch_id": "unique-id",\n'
-            '  "slice_id": "<from slice contract>",\n'
-            '  "operations": [\n'
-            '    {\n'
-            '      "op": "<operation_type>",\n'
-            '      "path": "<relative_file_path>",\n'
-            '      "content": "<the content to write or insert>"\n'
-            '    }\n'
-            '  ]\n'
-            '}\n\n'
-            "VALID OPERATION TYPES AND THEIR REQUIRED FIELDS:\n"
-            '- create_file: op, path, content\n'
-            '- replace_file: op, path, content\n'
-            '- replace_line_range: op, path, start_line, end_line, content\n'
-            '- insert_after_line: op, path, after_line, content\n'
-            '- insert_before_line: op, path, before_line, content\n'
-            '- delete_file: op, path\n\n'
-            "RULES:\n"
-            "1. Every operation (except delete_file) MUST have a 'content'\n"
-            "   field with the text to write.\n"
-            "2. Use the exact file paths from the allowed_files list.\n"
-            "3. Use line numbers from the provided file contents.\n"
-            "4. Line numbers are 1-indexed. Line ranges are inclusive."
-        )
+        from .prompts import SYSTEM_PROMPT_GENERATE
+
+        system_prompt = SYSTEM_PROMPT_GENERATE
         user_prompt = json.dumps({
             "task": handoff.get("description", ""),
             "slice": slice_contract,

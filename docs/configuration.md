@@ -21,7 +21,7 @@ model = "omnicoder-9b"
 temperature = 0.20
 top_p = 0.90
 top_k = 20
-max_tokens = 4096
+max_tokens = 8192
 json_retries = 2
 request_timeout_seconds = 180
 retry_base_delay_seconds = 0.5
@@ -92,7 +92,7 @@ scope_must_match_original_slice = true
 | `temperature` | float | no | `0.20` | Sampling temperature (0.0–2.0; Gemma 4: 1.0) |
 | `top_p` | float | no | `0.90` | Nucleus sampling threshold (Gemma 4: 0.95) |
 | `top_k` | int | no | `20` | Top-K sampling (Gemma 4: 64) |
-| `max_tokens` | int | no | `2048` | Max output tokens (Gemma 4: 4096) |
+| `max_tokens` | int | no | `8192` | Max output tokens (range 128–32768) |
 | `json_retries` | int | no | `2` | Retries on invalid JSON |
 | `request_timeout_seconds` | int | no | `180` | HTTP request timeout |
 | `retry_base_delay_seconds` | float | no | `0.5` | Starting backoff delay |

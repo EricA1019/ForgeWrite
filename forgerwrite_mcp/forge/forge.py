@@ -50,7 +50,7 @@ def preview_operations(
     The worktree MUST be clean before calling. It will be clean after.
     """
     assert_clean_worktree(repo_root)
-    ref = create_snapshot(repo_root, run_id)
+    create_snapshot(repo_root, run_id)
     try:
         for op in operation_batch.get("operations", []):
             handler = registry.dispatch(op)
@@ -65,7 +65,7 @@ def preview_operations(
             check=True,
         )
         result = subprocess.run(
-            ["git", "diff", "--cached", ref],
+            ["git", "diff", "--cached", "HEAD"],
             cwd=repo_root,
             capture_output=True,
             text=True,

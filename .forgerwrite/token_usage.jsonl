@@ -132,3 +132,4 @@
 {"timestamp": "2026-06-16T18:40:00.130390+00:00", "model_name": "stress-model-0", "purpose": "stress-test", "prompt_tokens": 180, "completion_tokens": 90, "total_tokens": 270}
 {"timestamp": "2026-06-16T18:40:00.130429+00:00", "model_name": "stress-model-1", "purpose": "stress-test", "prompt_tokens": 190, "completion_tokens": 95, "total_tokens": 285}
 {"timestamp": "2026-06-16T19:05:08.871657+00:00", "model_name": "stress-model-0", "purpose": "stress-test", "prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+{"timestamp": "2026-06-24T16:28:05.260694+00:00", "model_name": "omnicoder-9b", "purpose": "generate_operations", "prompt_tokens": 163, "completion_tokens": 338, "total_tokens": 501}

@@ -1,6 +1,6 @@
 {
   "model_name": "omnicoder-9b",
   "endpoint": "http://127.0.0.1:8080/v1",
-  "healthy": false,
-  "last_checked": "2026-06-17T12:51:12.229375+00:00"
+  "healthy": true,
+  "last_checked": "2026-06-24T16:27:52.394618+00:00"
 }

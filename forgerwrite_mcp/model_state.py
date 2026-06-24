@@ -35,13 +35,27 @@ def save_model_state(
     endpoint: str,
     healthy: bool,
 ) -> None:
-    """Save the current model configuration."""
+    """Save the current model configuration. Only writes on state change."""
     path = repo_root / _STATE_FILE
-    path.parent.mkdir(parents=True, exist_ok=True)
     data = {
         "model_name": model_name,
         "endpoint": endpoint,
         "healthy": healthy,
         "last_checked": datetime.now(UTC).isoformat(),
     }
+
+    # Skip write if state is unchanged (avoid constant churn)
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+            if (
+                existing.get("model_name") == model_name
+                and existing.get("endpoint") == endpoint
+                and existing.get("healthy") == healthy
+            ):
+                return
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")

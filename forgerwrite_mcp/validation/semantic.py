@@ -166,6 +166,43 @@ class PermissionRule:
         return errors
 
 
+class LineOverlapRule:
+    """Reject batches with multiple line-based operations on the same file.
+
+    Sequential line operations on the same file cause shifted line numbers
+    because each operation mutates the file before the next runs. Split
+    line-based edits to the same file into separate batches.
+    """
+
+    _LINE_OPS = frozenset({
+        "insert_before_line", "insert_after_line", "replace_line_range",
+    })
+
+    def check(
+        self,
+        batch: dict[str, Any],
+        slice_contract: dict[str, Any],
+        limits: LimitsConfig,
+        permissions: PermissionsConfig,
+    ) -> list[str]:
+        errors: list[str] = []
+        seen: dict[str, str] = {}  # path -> first line-op type
+
+        for op in batch.get("operations", []):
+            if op.get("op") not in self._LINE_OPS:
+                continue
+            path = op.get("path", "")
+            if path in seen:
+                errors.append(
+                    f"Multiple line-based operations on '{path}': "
+                    f"{seen[path]} and {op['op']}. Split into separate batches "
+                    f"to avoid line-number shift."
+                )
+            else:
+                seen[path] = op["op"]
+        return errors
+
+
 # ── Validator ───────────────────────────────────────────────────────────────
 
 
@@ -208,6 +245,7 @@ def default_validator() -> SemanticValidator:
     v = SemanticValidator()
     v.register(ScopeRule())
     v.register(SizeRule())
+    v.register(LineOverlapRule())
     v.register(GeneratedPathRule())
     v.register(
         PermissionRule(

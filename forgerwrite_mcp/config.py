@@ -47,7 +47,7 @@ class LocalModelConfig(BaseModel):
     temperature: Annotated[float, Field(ge=0.0, le=2.0)] = 0.20
     top_p: Annotated[float, Field(gt=0.0, le=1.0)] = 0.90
     top_k: Annotated[int, Field(ge=1)] = 20
-    max_tokens: Annotated[int, Field(ge=128, le=16384)] = 4096
+    max_tokens: Annotated[int, Field(ge=128, le=32768)] = 8192
     json_retries: Annotated[int, Field(ge=0, le=5)] = 2
     request_timeout_seconds: Annotated[float, Field(ge=5.0, le=3600.0)] = 180.0
     retry_base_delay_seconds: Annotated[float, Field(gt=0.0, le=60.0)] = 0.5

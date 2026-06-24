@@ -362,10 +362,16 @@ async def fw_model_health() -> dict:
         client = LlamaCppClient.from_config(config.local_model)
         health = client.check_health()
 
+        # Use actual loaded model name if available, otherwise config default
+        if health.get("loaded_models"):
+            health["model_name"] = health["loaded_models"][0].replace(".gguf", "")
+        else:
+            health["model_name"] = health.get("model_name", config.local_model.model)
+
         # Save state for TUI / dashboard
         save_model_state(
             repo_root=Path.cwd(),
-            model_name=config.local_model.model,
+            model_name=health["model_name"],
             endpoint=config.local_model.endpoint,
             healthy=health["healthy"],
         )
@@ -446,6 +452,7 @@ def boot() -> None:
             from .config import load_config
             from .context import build_context_packet
             from .llama_client import LlamaCppClient
+            from .prompts import SYSTEM_PROMPT_GENERATE
             from .rag import build_rag_enricher
 
             config = load_config(Path.cwd())
@@ -477,10 +484,7 @@ def boot() -> None:
                     k=config.rag.k_documents,
                 )
 
-            system_prompt = (
-                "You are a coding assistant that produces structured JSON operation batches.\n\n"
-                "Respond ONLY with a JSON object matching the operation_batch schema."
-            )
+            system_prompt = SYSTEM_PROMPT_GENERATE
             raw = await client.generate_operation_batch(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -491,8 +495,18 @@ def boot() -> None:
             return envelope_from(exc, "generate").to_dict()
 
     @mcp.tool()
-    async def fw_validate_operations(operation_batch: dict) -> dict:
-        """Validate an operation batch (schema + semantic)."""
+    async def fw_validate_operations(
+        operation_batch: dict,
+        slice_contract: dict | None = None,
+    ) -> dict:
+        """Validate an operation batch (schema + semantic).
+
+        Args:
+            operation_batch: The operation batch to validate.
+            slice_contract: Optional slice contract for scope/semantic
+                           validation. When provided, allowed_files from
+                           the contract are used for scope checking.
+        """
         try:
             from .contracts.registry import ContractRegistry
             from .validation.semantic import default_validator
@@ -500,7 +514,10 @@ def boot() -> None:
             registry = ContractRegistry(Path(__file__).parent.parent / "schemas")
             registry.validate("operation_batch.v1.json", operation_batch)
             validator = default_validator()
-            validator.validate(operation_batch, {"allowed_files": []})
+            validator.validate(
+                operation_batch,
+                slice_contract if slice_contract else {"allowed_files": []},
+            )
             return {"ok": True, "valid": True}
         except Exception as exc:
             return envelope_from(exc, "validate_ops").to_dict()
@@ -510,6 +527,7 @@ def boot() -> None:
         operation_batch: dict,
         slice_contract: dict,
         run_id: str = "preview",
+        project_root: str = ".",
     ) -> dict:
         """Produce a preview diff and write an approval record.
 
@@ -518,20 +536,22 @@ def boot() -> None:
             slice_contract: The slice contract for scope validation.
             run_id: Run identifier (default "preview"). Use a unique ID
                    for parallel operations.
+            project_root: Relative or absolute path to the project root.
         """
         try:
             from .approval import write_approval_record
             from .forge.forge import preview_operations
             from .operations.registry import default_registry
 
+            root = Path(project_root).resolve()
             result = preview_operations(
-                Path.cwd(),
+                root,
                 run_id,
                 operation_batch,
                 slice_contract,
                 default_registry(),
             )
-            run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
+            run_dir = root / ".forgerwrite" / "runs" / run_id
             write_approval_record(run_dir)
             return {
                 "ok": True,
@@ -546,6 +566,7 @@ def boot() -> None:
         operation_batch: dict, slice_contract: dict,
         run_id: str = "preview",
         auto_validate: bool = False,
+        project_root: str = ".",
     ) -> dict:
         """Apply approved operations with full lifecycle.
 
@@ -558,6 +579,7 @@ def boot() -> None:
             run_id: Run identifier (default "preview"). Must match the
                    run_id used in fw_preview_operations.
             auto_validate: If True, run validation profile after apply.
+            project_root: Relative or absolute path to the project root.
         """
         try:
             from .approval import assert_approved
@@ -567,11 +589,12 @@ def boot() -> None:
             from .forge.git_utils import cleanup_snapshot
             from .operations.registry import default_registry
 
-            run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
-            approval = assert_approved(run_dir, Path.cwd())
+            root = Path(project_root).resolve()
+            run_dir = root / ".forgerwrite" / "runs" / run_id
+            approval = assert_approved(run_dir, root)
 
             result = apply_approved_operations(
-                Path.cwd(),
+                root,
                 run_id,
                 operation_batch,
                 slice_contract,
@@ -580,7 +603,7 @@ def boot() -> None:
             )
 
             write_audit_event(run_dir, "apply", {"run_id": run_id, "changed": len(result.changed)})
-            cleanup_snapshot(Path.cwd(), run_id)
+            cleanup_snapshot(root, run_id)
 
             response: dict = {"ok": True, "changed": len(result.changed)}
 
@@ -589,9 +612,9 @@ def boot() -> None:
                     from .config import load_config
                     from .validation.runner import run_validation_profile
 
-                    config = load_config(Path.cwd())
+                    config = load_config(root)
                     vr = run_validation_profile(
-                        Path.cwd(),
+                        root,
                         "python_default",
                         config.validation,
                         limits=config.limits,
@@ -605,20 +628,30 @@ def boot() -> None:
         except Exception as exc:
             from .dead_letter import write_dead_letter
 
-            run_dir = Path.cwd() / ".forgerwrite" / "runs" / run_id
+            root = Path(project_root).resolve()
+            run_dir = root / ".forgerwrite" / "runs" / run_id
             write_dead_letter(run_dir, f"Apply failed: {exc}")
             return envelope_from(exc, "apply").to_dict()
 
     @mcp.tool()
-    async def fw_run_validation_profile(profile_id: str = "rust_default") -> dict:
-        """Run a validation profile."""
+    async def fw_run_validation_profile(
+        profile_id: str = "rust_default",
+        project_root: str = ".",
+    ) -> dict:
+        """Run a validation profile.
+
+        Args:
+            profile_id: Profile name (e.g. "rust_default", "python_default").
+            project_root: Relative or absolute path to the project root.
+        """
         try:
             from .config import load_config
             from .validation.runner import run_validation_profile
 
-            config = load_config(Path.cwd())
+            root = Path(project_root).resolve()
+            config = load_config(root)
             result = run_validation_profile(
-                Path.cwd(),
+                root,
                 profile_id,
                 config.validation,
                 limits=config.limits,

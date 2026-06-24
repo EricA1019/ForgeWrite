@@ -218,7 +218,7 @@ model = "gemma-4-12b-it"
 temperature = 0.20
 top_p = 0.90
 top_k = 20
-max_tokens = 4096
+max_tokens = 8192
 json_retries = 2
 request_timeout_seconds = 180
 
